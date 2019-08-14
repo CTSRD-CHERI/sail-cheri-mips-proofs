@@ -521,16 +521,7 @@ lemma traces_enabled_write_cap_regs[traces_enabledI]:
     and "traces_enabled (write_reg NextPCC_ref c) s regs"
     and "traces_enabled (write_reg PCC_ref c) s regs"
   using assms
-  by (intro traces_enabled_write_reg;
-      auto simp: C01_ref_def C02_ref_def C03_ref_def C04_ref_def C05_ref_def
-                 C06_ref_def C07_ref_def C08_ref_def C09_ref_def C10_ref_def
-                 C11_ref_def C12_ref_def C13_ref_def C14_ref_def C15_ref_def
-                 C16_ref_def C17_ref_def C18_ref_def C19_ref_def C20_ref_def
-                 C21_ref_def C22_ref_def C23_ref_def C24_ref_def C25_ref_def
-                 C26_ref_def C27_ref_def C28_ref_def C29_ref_def C30_ref_def
-                 C31_ref_def CPLR_ref_def CULR_ref_def DDC_ref_def DelayedPCC_ref_def
-                 EPCC_ref_def ErrorEPCC_ref_def KCC_ref_def KDC_ref_def KR1C_ref_def
-                 KR2C_ref_def CapCause_ref_def NextPCC_ref_def PCC_ref_def derivable_caps_def)+
+  by (intro traces_enabled_write_reg; auto simp: register_defs derivable_caps_def)+
 
 lemma traces_enabled_read_cap_regs[traces_enabledI]:
   "traces_enabled (read_reg C01_ref) s regs"
@@ -577,16 +568,7 @@ lemma traces_enabled_read_cap_regs[traces_enabledI]:
   "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg CapCause_ref) s regs"
   "traces_enabled (read_reg NextPCC_ref) s regs"
   "traces_enabled (read_reg PCC_ref) s regs"
-  by (intro traces_enabled_read_reg;
-      auto simp: C01_ref_def C02_ref_def C03_ref_def C04_ref_def C05_ref_def
-                 C06_ref_def C07_ref_def C08_ref_def C09_ref_def C10_ref_def
-                 C11_ref_def C12_ref_def C13_ref_def C14_ref_def C15_ref_def
-                 C16_ref_def C17_ref_def C18_ref_def C19_ref_def C20_ref_def
-                 C21_ref_def C22_ref_def C23_ref_def C24_ref_def C25_ref_def
-                 C26_ref_def C27_ref_def C28_ref_def C29_ref_def C30_ref_def
-                 C31_ref_def CPLR_ref_def CULR_ref_def DDC_ref_def DelayedPCC_ref_def
-                 EPCC_ref_def ErrorEPCC_ref_def KCC_ref_def KDC_ref_def KR1C_ref_def
-                 KR2C_ref_def NextPCC_ref_def PCC_ref_def)+
+  by (intro traces_enabled_read_reg; auto simp: register_defs)+
 
 (*lemma preserves_invariant_init_cp2_state[preserves_invariantI]:
   shows "traces_preserve_invariant (init_cp2_state arg0)"

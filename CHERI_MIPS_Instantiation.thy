@@ -78,7 +78,7 @@ begin
 definition
   "ISA \<equiv>
      \<lparr>instr_sem = execute,
-      instr_fetch = Fail ''Not hooked up yet'', (* TODO *)
+      instr_fetch = Fail ''Not hooked up yet'', \<comment> \<open>TODO\<close>
       tag_granule = 32,
       PCC = {''PCC'', ''NextPCC'', ''DelayedPCC''},
       KCC = {''KCC''},
@@ -86,7 +86,7 @@ definition
       caps_of_regval = (\<lambda>rv. case rv of Regval_Capability c \<Rightarrow> {c} | _ \<Rightarrow> {}),
       invokes_caps = (\<lambda>instr t. case instr of CCall _ \<Rightarrow> True | _ \<Rightarrow> False),
       instr_raises_ex = (\<lambda>instr t. hasException t (execute instr) \<or> hasFailure t (execute instr)),
-      fetch_raises_ex = (\<lambda>t. False), (* TODO *)
+      fetch_raises_ex = (\<lambda>t. False), \<comment> \<open>TODO\<close>
       exception_targets = (\<lambda>rvs. \<Union>rv \<in> rvs. case rv of Regval_Capability c \<Rightarrow> {c} | _ \<Rightarrow> {}),
       privileged_regs = privileged_CHERI_regs,
       translation_tables = (\<lambda>t. {}),
@@ -325,13 +325,13 @@ lemma non_cap_exp_shift_bits[non_cap_expI]:
   by non_cap_expI
 
 lemma no_cap_regvals[simp]:
-  "\<And>v. vector_1_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. vector_3_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. vector_6_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. vector_8_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. vector_16_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. vector_32_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. vector_64_dec_bit_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_1_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_3_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_6_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_8_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_16_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_32_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
+  "\<And>v. bitvector_64_dec_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. CauseReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. StatusReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. ContextReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
@@ -1125,7 +1125,7 @@ sublocale State_Invariant get_regval set_regval invariant inv_regs .
 definition translate_addressM :: "nat \<Rightarrow> bool \<Rightarrow> nat M" where
   "translate_addressM vaddr is_load \<equiv>
      let vaddr = word_of_int (int vaddr) in
-     let acctype = (*if is_fetch then Instruction else*) if is_load then LoadData else StoreData in
+     let acctype = if is_load then LoadData else StoreData in
      TLBTranslate vaddr acctype \<bind> (\<lambda>paddr.
      return (unat paddr))"
 

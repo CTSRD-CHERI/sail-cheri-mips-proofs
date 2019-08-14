@@ -276,7 +276,7 @@ definition axiom_step :: "('cap, 'regval) axiom_state \<Rightarrow> 'regval even
   "axiom_step s e = \<lparr>accessed_caps = accessed_caps s \<union> accessed_mem_caps e \<union> accessed_reg_caps (accessible_regs s) e,
                      system_reg_access = system_reg_access s \<or> allows_system_reg_access (accessible_regs s) e,
                      read_from_KCC = read_from_KCC s \<union> {v. \<exists>r \<in> KCC ISA. e = E_read_reg r v},
-                     written_regs = written_regs s \<union> {r. \<exists>v c. e = E_write_reg r v (*\<and> r \<in> PCC ISA \<union> IDC ISA*) \<and> c \<in> caps_of_regval ISA v \<and> is_tagged_method CC c (*\<and> c \<notin> derivable (accessed_caps s)*)}\<rparr>"
+                     written_regs = written_regs s \<union> {r. \<exists>v c. e = E_write_reg r v \<and> c \<in> caps_of_regval ISA v \<and> is_tagged_method CC c}\<rparr>"
 
 lemma step_selectors[simp]:
   "accessed_caps (axiom_step s e) = accessed_caps s \<union> accessed_mem_caps e \<union> accessed_reg_caps (accessible_regs s) e"
@@ -341,7 +341,7 @@ proof (induction i)
 qed auto
 
 lemma write_only_regs_run_take_eq:
-  "written_regs (run initial (take i t)) = {r. \<exists>v c j. t ! j = E_write_reg r v \<and> j < i \<and> j < length t (*\<and> r \<in> PCC ISA \<union> IDC ISA*) \<and> c \<in> caps_of_regval ISA v \<and> is_tagged_method CC c (*\<and> c \<notin> derivable (available_caps CC ISA j t)*)}"
+  "written_regs (run initial (take i t)) = {r. \<exists>v c j. t ! j = E_write_reg r v \<and> j < i \<and> j < length t \<and> c \<in> caps_of_regval ISA v \<and> is_tagged_method CC c}"
 proof (induction i)
   case (Suc i)
   then show ?case
@@ -681,9 +681,7 @@ lemma Run_write_reg_run_gen:
   assumes "Run (write_reg r v) t a"
   shows "run s t =
            s\<lparr>written_regs := written_regs s \<union>
-                                (if (*(name r \<in> PCC ISA \<or> name r \<in> IDC ISA) \<and>*)
-                                     (\<exists>c \<in> caps_of_regval ISA (regval_of r v).
-                                        is_tagged_method CC c (*\<and> c \<notin> derivable (accessed_caps s)*))
+                                (if (\<exists>c \<in> caps_of_regval ISA (regval_of r v). is_tagged_method CC c)
                                  then {name r} else {})\<rparr>"
   using assms
   by (cases s) (auto simp: write_reg_def step_defs elim!: Write_reg_TracesE)
@@ -768,9 +766,7 @@ fun enabled :: "('cap, 'regval) axiom_state \<Rightarrow> 'regval event \<Righta
           (c \<in> exception_targets ISA (read_from_KCC s) \<and> ex_traces \<and> r \<in> PCC ISA) \<or>
           (\<exists>cc cd. invocation_traces \<and> cc \<in> derivable (accessed_caps s) \<and> cd \<in> derivable (accessed_caps s) \<and>
                    invokable CC cc cd \<and> (r \<in> PCC ISA \<and> leq_cap CC c (unseal CC cc True) \<or> r \<in> IDC ISA \<and> leq_cap CC c (unseal CC cd True)))))"
-| "enabled s (E_read_reg r v) =
-     ((*(r \<in> PCC ISA \<union> IDC ISA \<longrightarrow> r \<notin> written_regs s) \<and>*)
-      (r \<in> privileged_regs ISA \<longrightarrow> (system_reg_access s \<or> (ex_traces (*\<and> r \<in> KCC ISA*)))))"
+| "enabled s (E_read_reg r v) = (r \<in> privileged_regs ISA \<longrightarrow> (system_reg_access s \<or> ex_traces))"
 | "enabled s (E_write_memt _ addr sz bytes tag _) =
      (\<forall>c.  cap_of_mem_bytes_method CC bytes tag = Some c \<and> is_tagged_method CC c \<longrightarrow> c \<in> derivable (accessed_caps s))"
 | "enabled s _ = True"

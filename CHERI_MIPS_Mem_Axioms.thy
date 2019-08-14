@@ -360,7 +360,7 @@ lemma Run_inv_addrWrapperUnaligned_access_enabled[derivable_capsE]:
     and "is_load \<or> length v = nat sz"
   shows "access_enabled (run s t) is_load paddr (nat sz) v B0"
   using assms
-  unfolding Run_inv_def addrWrapperUnaligned_def checkDDCPerms_def Let_def
+  unfolding Run_inv_def addrWrapperUnaligned_def unalignedBytesTouched_def checkDDCPerms_def Let_def
   by (cases width; cases is_load;
       auto elim!: Run_bindE Run_read_reg_DDC_access_enabled translate_address_paddr_in_mem_region
            simp: getCapBounds_def mod_mod_cancel mod_diff_mod_eq mod_le_dvd_divisor)

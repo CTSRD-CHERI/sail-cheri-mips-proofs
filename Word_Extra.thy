@@ -245,11 +245,6 @@ subsection \<open>Masks\<close>
 
 text \<open>We see @{const max_word} as a special case of @{const mask}.\<close>
 
-lemma mask_zero [simp]:
-  shows "mask 0 = 0"
-unfolding mask_def shiftl_1
-by simp
-
 lemma mask_max_word [simp]:
   assumes "LENGTH('a) \<le> n"
   shows "(mask n::'a::len word) = max_word"
@@ -258,7 +253,7 @@ by (intro word_eqI) (simp add: word_size)
 
 lemma max_word_alt_def:
   shows "(max_word::'a::len word) = mask LENGTH('a)"
-by simp
+by (intro word_eqI) (simp add: word_size)
 
 lemma mask_plus_one:
   shows "(mask n::'a::len word) + 1 = 2 ^ n"
@@ -1585,7 +1580,7 @@ using word_and_mask_and_not_mask_size[OF assms]
 using word_bool_alg.conj.assoc word_bool_alg.conj.commute
 by metis
 
-subsection \<open>Complete lattice over words\<close>
+(*subsection \<open>Complete lattice over words\<close>
 
 text \<open>Because @{typ "'a word"} is already an instantiation of the type class @{class order}, we
 cannot create a class instance of @{class lattice} using a different order. We can, however, create
@@ -1810,7 +1805,7 @@ next
   show "bitwise_Sup {} = bitwise_bot"
     unfolding bitwise_Sup_def
     by simp
-qed
+qed*)
 
 (*subsubsection \<open>Interpretation of @{class complete_distrib_lattice}\<close>
 
