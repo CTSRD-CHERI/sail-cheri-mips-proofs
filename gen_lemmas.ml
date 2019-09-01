@@ -228,12 +228,6 @@ let format_traces_enabled_lemma f =
   "  unfolding " ^ format_fun_name f ^ "_def bind_assoc\n" ^
   "  by (traces_enabledI" ^ using ^ ")\n"
 
-let format_preserves_invariant_lemma f =
-  "lemma preserves_invariant_" ^ format_fun_name f ^ "[preserves_invariantI]:\n" ^
-  "  shows \"runs_preserve_invariant (" ^ format_fun_call f ^ ")\"\n" ^
-  "  unfolding " ^ format_fun_name f ^ "_def bind_assoc\n" ^
-  "  by (preserves_invariantI)\n"
-
 let json = Yojson.Basic.from_file "fp.json"
 let fun_infos =
   Yojson.Basic.from_file "fp.json"
@@ -303,25 +297,27 @@ let non_inv_regs_lemma inv_regs =
   "  unfolding " ^ String.concat " " defs ^ "\n" ^
   "  by (intro no_reg_writes_traces_preserve_invariantI no_reg_writes_to_write_reg; simp)+\n"
 
+let preserves_invariant_stmt runs f =
+  let get_arg_assm i r = if (is_ref_typ r && not (StringSet.mem r cap_ref_typs)) then ["name arg" ^ string_of_int i ^ " \\<notin> inv_regs"] else [] in
+  let assms = (List.concat (List.mapi get_arg_assm f.arg_typs)) in
+  let stmt = (if runs then "runs" else "traces") ^ "_preserve_invariant (" ^ format_fun_call f ^ ")" in
+  (assms, stmt)
+
+let format_preserves_invariant_lemma f =
+  let (assms, stmt) = preserves_invariant_stmt true f in
+  format_lemma
+    { (mk_lemma ("preserves_invariant_" ^ format_fun_name f) assms [stmt])
+      with proof = "preserves_invariantI"; attrs = "[preserves_invariantI]";
+           unfolding = (format_fun_name f ^ "_def bind_assoc") }
+
 let preserve_inv_no_writes_lemma fs =
   let stmt f =
-    let get_arg_assm i r = if (is_ref_typ r && not (StringSet.mem r cap_ref_typs)) then ["name arg" ^ string_of_int i ^ " \\<notin> inv_regs"] else [] in
-    let assms =  (List.concat (List.mapi get_arg_assm f.arg_typs)) in
-    "\\<And>" ^ format_fun_args f ^ ". " ^ (if assms = [] then "" else String.concat " \\<Longrightarrow> " (assms @ [""])) ^ "traces_preserve_invariant (" ^ format_fun_call f ^ ")"
+    let (assms, stmt) = preserves_invariant_stmt false f in
+    "\\<And>" ^ format_fun_args f ^ ". " ^ (if assms = [] then "" else String.concat " \\<Longrightarrow> " (assms @ [""])) ^ stmt
   in
   { (mk_lemma "preserves_invariant_no_writes_to_inv_regs" [] (List.map stmt fs))
     with proof = "(intro no_reg_writes_traces_preserve_invariantI no_reg_writes_toI; simp)+";
          attrs = "[preserves_invariantI]" }
-  (*let fs = List.filter (fun f -> effectful f && not (writes_inv_reg f) && not (StringSet.mem f.name skip_funs) && StringSet.mem f.name (funs_called_by fun_infos)) fun_infos in
-  let stmt f =
-    let get_arg_assm i r = if (is_ref_typ r && not (StringSet.mem r cap_ref_typs)) then ["name arg" ^ string_of_int i ^ " \\<notin> inv_regs"] else [] in
-    let assms =  (List.concat (List.mapi get_arg_assm f.arg_typs)) in
-    "  \"\\<And>" ^ format_fun_args f ^ ". " ^ (if assms = [] then "" else String.concat " \\<Longrightarrow> " (assms @ [""])) ^ "traces_preserve_invariant (" ^ format_fun_call f ^ ")\""
-  in
-  let stmts = List.map stmt fs in
-  "lemma preserves_invariant_no_writes_to_inv_regs[preserves_invariantI]:\n" ^
-  String.concat "\n" stmts ^ "\n" ^
-  "  by (intro no_reg_writes_traces_preserve_invariantI no_reg_writes_toI; simp)+\n"*)
 
 let read_cap_regs_derivable_lemma =
   let stmt r = "\\<And>t c regs s. Run_inv (read_reg " ^ mangle_reg_ref r ^ ") t c regs \\<Longrightarrow> {''" ^ r ^ "''} \\<subseteq> accessible_regs s \\<Longrightarrow> c \\<in> derivable_caps (run s t)" in
@@ -372,11 +368,11 @@ print_endline  "begin";;
 print_endline  "";;
 
 if not (StringSet.is_empty cap_inv_regs) then print_endline (non_inv_regs_lemma cap_inv_regs);;
-if not (StringSet.is_empty cap_inv_regs) then print_endline (format_lemma (preserve_inv_no_writes_lemma (List.filter (fun f -> not (writes cap_inv_regs f) && StringSet.mem f.name (funs_called_by cap_funs)) fun_infos)));;
+if not (StringSet.is_empty cap_inv_regs) then print_endline (format_lemma (preserve_inv_no_writes_lemma (List.filter (fun f -> not (writes cap_inv_regs f) && StringSet.mem f.name (funs_called_by fun_infos)) fun_infos)));;
 print_endline write_cap_regs_lemma;;
 print_endline read_cap_regs_lemma;;
 if not (StringSet.is_empty cap_inv_regs) then
-  (List.filter (fun f -> writes cap_inv_regs f && StringSet.mem f.name (funs_called_by cap_funs)) fun_infos
+  (List.filter (fun f -> writes cap_inv_regs f || not (StringSet.mem f.name (funs_called_by fun_infos))) fun_infos
     |> List.map format_preserves_invariant_lemma
     |> List.iter print_endline);;
 
@@ -398,8 +394,8 @@ print_endline  "";;
 
 if not (StringSet.is_empty mem_inv_regs) then begin
   print_endline (non_inv_regs_lemma mem_inv_regs);
-  print_endline (format_lemma (preserve_inv_no_writes_lemma (List.filter (fun f -> not (writes mem_inv_regs f) && StringSet.mem f.name (funs_called_by mem_funs)) fun_infos)));
-  (List.filter (fun f -> writes mem_inv_regs f && StringSet.mem f.name (funs_called_by mem_funs)) fun_infos
+  print_endline (format_lemma (preserve_inv_no_writes_lemma (List.filter (fun f -> not (writes mem_inv_regs f) && StringSet.mem f.name (funs_called_by fun_infos)) fun_infos)));
+  (List.filter (fun f -> writes mem_inv_regs f || not (StringSet.mem f.name (funs_called_by fun_infos))) fun_infos
     |> List.map format_preserves_invariant_lemma
     |> List.iter print_endline)
 end;;

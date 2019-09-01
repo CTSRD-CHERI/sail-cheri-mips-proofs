@@ -108,6 +108,7 @@ lemma non_cap_regsI[intro, simp]:
   "non_cap_reg UART_RVALID_ref"
   "non_cap_reg UART_WDATA_ref"
   "non_cap_reg UART_WRITTEN_ref"
+  "non_cap_reg InstCount_ref"
   unfolding BranchPending_ref_def CID_ref_def CP0BadInstr_ref_def CP0BadInstrP_ref_def CP0BadVAddr_ref_def
      CP0Cause_ref_def CP0Compare_ref_def CP0ConfigK0_ref_def CP0Count_ref_def CP0HWREna_ref_def
      CP0LLAddr_ref_def CP0LLBit_ref_def CP0Status_ref_def CP0UserLocal_ref_def CurrentInstrBits_ref_def
@@ -128,7 +129,7 @@ lemma non_cap_regsI[intro, simp]:
      TLBEntry60_ref_def TLBEntry61_ref_def TLBEntry62_ref_def TLBEntry63_ref_def TLBEntryHi_ref_def
      TLBEntryLo0_ref_def TLBEntryLo1_ref_def TLBIndex_ref_def TLBPageMask_ref_def TLBProbe_ref_def
      TLBRandom_ref_def TLBWired_ref_def TLBXContext_ref_def UART_RDATA_ref_def UART_RVALID_ref_def
-     UART_WDATA_ref_def UART_WRITTEN_ref_def
+     UART_WDATA_ref_def UART_WRITTEN_ref_def InstCount_ref_def
   by (auto simp: non_cap_reg_def)
 
 lemmas non_cap_exp_rw_non_cap_reg[non_cap_expI] =
@@ -1488,6 +1489,10 @@ lemma non_mem_exp_execute_ADDI[non_mem_expI]:
 lemma non_mem_exp_execute_ADD[non_mem_expI]:
   "non_mem_exp (execute_ADD arg0 arg1 arg2)"
   by (non_mem_expI simp: execute_ADD_def)
+
+lemma non_mem_exp_cp2_next_pc[non_mem_expI]:
+  "non_mem_exp (cp2_next_pc u)"
+  by (non_mem_expI simp: cp2_next_pc_def)
 
 lemma no_reg_writes_to_undefined_option[no_reg_writes_toI, simp]:
   "no_reg_writes_to Rs (undefined_option arg0)"

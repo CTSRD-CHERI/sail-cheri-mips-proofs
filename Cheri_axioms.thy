@@ -18,6 +18,8 @@ begin
 \<comment> \<open>\<open>open import Sail2_operators\<close>\<close>
 \<comment> \<open>\<open>open import Capabilities\<close>\<close>
 
+datatype acctype = Load | Store | Fetch
+
 record( 'cap, 'regval, 'instr, 'e) isa =
   
  instr_sem ::" 'instr \<Rightarrow> ('regval, unit, 'e) monad " 
@@ -46,7 +48,7 @@ record( 'cap, 'regval, 'instr, 'e) isa =
 
      translation_tables ::" 'regval trace \<Rightarrow> nat set " 
 
-     translate_address ::" nat \<Rightarrow> bool \<Rightarrow> 'regval trace \<Rightarrow>  nat option " 
+     translate_address ::" nat \<Rightarrow> acctype \<Rightarrow> 'regval trace \<Rightarrow>  nat option " 
 
 
 definition writes_mem_val_at_idx  :: " nat \<Rightarrow>('a event)list \<Rightarrow>(nat*nat*(memory_byte)list*bitU)option "  where 
@@ -272,7 +274,7 @@ definition load_mem_axiom  :: " 'cap Capability_class \<Rightarrow>('cap,'regval
         cap_derivable 
   dict_Capabilities_Capability_cap (available_caps dict_Capabilities_Capability_cap ISA i t) c' \<and> (
   (is_tagged_method   dict_Capabilities_Capability_cap) c' \<and> (\<not> ((is_sealed_method   dict_Capabilities_Capability_cap) c') \<and>
-        (((translate_address   ISA) vaddr True (List.take i t) = Some paddr) \<and>
+        (((translate_address   ISA) vaddr (if is_fetch then Fetch else Load) (List.take i t) = Some paddr) \<and>
         ((List.set (address_range vaddr sz) \<subseteq> (
   (get_mem_region_method   dict_Capabilities_Capability_cap) c')) \<and>
         ((if is_fetch \<and> (tag = B0) then(permit_execute   (
@@ -334,7 +336,7 @@ definition store_mem_axiom  :: " 'cap Capability_class \<Rightarrow>('cap,'regva
         cap_derivable 
   dict_Capabilities_Capability_cap (available_caps dict_Capabilities_Capability_cap ISA i t) c' \<and> (
   (is_tagged_method   dict_Capabilities_Capability_cap) c' \<and> (\<not> ((is_sealed_method   dict_Capabilities_Capability_cap) c') \<and>
-        (((translate_address   ISA) vaddr False (List.take i t) = Some paddr) \<and>
+        (((translate_address   ISA) vaddr Store (List.take i t) = Some paddr) \<and>
         ((List.set (address_range vaddr sz) \<subseteq> (
   (get_mem_region_method   dict_Capabilities_Capability_cap) c')) \<and>
         ((if (mem_val_is_cap 

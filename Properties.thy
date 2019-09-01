@@ -4,8 +4,11 @@ begin
 
 locale CHERI_ISA = Capability_ISA CC ISA
   for CC :: "'cap Capability_class" and ISA :: "('cap, 'regval, 'instr, 'e) isa" +
-  assumes instr_cheri_axioms: "\<And>t instr. hasTrace t \<lbrakk>instr\<rbrakk> \<Longrightarrow> cheri_axioms CC ISA False (instr_raises_ex ISA instr t) (invokes_caps ISA instr t) t"
-    and fetch_cheri_axioms: "\<And>t. hasTrace t (instr_fetch ISA) \<Longrightarrow> cheri_axioms CC ISA True (fetch_raises_ex ISA t) False t"
+  fixes fetch_assms :: "'regval trace \<Rightarrow> bool" and instr_assms :: "'regval trace \<Rightarrow> bool"
+  assumes instr_cheri_axioms: "\<And>t instr. hasTrace t \<lbrakk>instr\<rbrakk> \<Longrightarrow> instr_assms t \<Longrightarrow> cheri_axioms CC ISA False (instr_raises_ex ISA instr t) (invokes_caps ISA instr t) t"
+    and fetch_cheri_axioms: "\<And>t. hasTrace t (instr_fetch ISA) \<Longrightarrow> fetch_assms t \<Longrightarrow> cheri_axioms CC ISA True (fetch_raises_ex ISA t) False t"
+    and instr_assms_appendE: "\<And>t t' instr. instr_assms (t @ t') \<Longrightarrow> Run \<lbrakk>instr\<rbrakk> t () \<Longrightarrow> instr_assms t \<and> fetch_assms t'"
+    and fetch_assms_appendE: "\<And>t t' instr. fetch_assms (t @ t') \<Longrightarrow> Run (instr_fetch ISA) t instr \<Longrightarrow> fetch_assms t \<and> instr_assms t'"
 
 locale Register_Accessors =
   fixes read_regval :: "register_name \<Rightarrow> 'regs \<Rightarrow> 'regval option"
@@ -23,7 +26,7 @@ locale CHERI_ISA_State = CHERI_ISA CC ISA + Register_Accessors read_regval write
   and CC :: "'cap Capability_class"
   and read_regval :: "register_name \<Rightarrow> 'regs \<Rightarrow> 'regval option"
   and write_regval :: "register_name \<Rightarrow> 'regval \<Rightarrow> 'regs \<Rightarrow> 'regs option" +
-  (* State variants of ISA model parameters *)
+  (* State versions of ISA model parameters *)
   fixes s_translation_tables :: "'regs sequential_state \<Rightarrow> nat set"
     and s_translate_address :: "nat \<Rightarrow> bool \<Rightarrow> 'regs sequential_state \<Rightarrow> nat option"
   assumes read_absorb_write: "\<And>r v s s'. write_regval r v s = Some s' \<Longrightarrow> read_regval r s' = Some v"
@@ -139,25 +142,26 @@ lemma runTraceS_rev_induct[consumes 1, case_names Init Step]:
      (auto elim: runTraceS_appendE runTraceS_ConsE simp: bind_eq_Some_conv)
 
 lemma get_reg_val_s_run_trace_cases:
-  assumes v: "get_reg_val r s' = Some v"
+  assumes v: "get_reg_val r s' = Some v" and c: "c \<in> caps_of_regval ISA v"
     and s': "s_run_trace t s = Some s'"
   obtains (Init) "get_reg_val r s = Some v"
-  | (Update) j where "t ! j = E_write_reg r v" and "j < length t"
-proof (use s' v in \<open>induction rule: runTraceS_rev_induct\<close>)
+  | (Update) j v' where "t ! j = E_write_reg r v'" and "c \<in> caps_of_regval ISA v'" and "j < length t"
+proof (use s' v c in \<open>induction rule: runTraceS_rev_induct\<close>)
   case (Step t e s'' s')
   note Init = Step(4)
   note Update = Step(5)
+  note c = \<open>c \<in> caps_of_regval ISA v\<close>
   show ?case
   proof cases
     assume v_s'': "get_reg_val r s'' = Some v"
     show ?thesis
-    proof (rule Step.IH[OF _ _ v_s''])
+    proof (rule Step.IH[OF _ _ v_s'' c])
       assume "get_reg_val r s = Some v"
       then show thesis by (intro Init)
     next
-      fix j
-      assume "t ! j = E_write_reg r v" and "j < length t"
-      then show thesis by (intro Update[of j]) (auto simp: nth_append_left)
+      fix j v'
+      assume "t ! j = E_write_reg r v'" and "c \<in> caps_of_regval ISA v'" and "j < length t"
+      then show thesis by (intro Update[of j v']) (auto simp: nth_append_left)
     qed
   next
     assume v_s'': "get_reg_val r s'' \<noteq> Some v"
@@ -170,7 +174,7 @@ proof (use s' v in \<open>induction rule: runTraceS_rev_induct\<close>)
         using v_s' v_s''
         by (cases "r' = r") (auto simp: read_ignore_write read_absorb_write)
     qed (auto simp: put_mem_bytes_def Let_def)
-    then show thesis by (auto intro: Update[of "length t"])
+    then show thesis using c by (auto intro: Update[of "length t" v])
   qed
 qed auto
 
@@ -534,7 +538,7 @@ lemma get_reg_cap_intra_domain_trace_reachable:
 proof -
   from r obtain v where v: "get_reg_val r s' = Some v" and c: "c \<in> caps_of_regval ISA v"
     by (auto simp: bind_eq_Some_conv split: option.splits)
-  from v s' show "c \<in> reachable_caps s"
+  from v c s' show "c \<in> reachable_caps s"
   proof (cases rule: get_reg_val_s_run_trace_cases)
     case Init
     show ?thesis
@@ -549,7 +553,7 @@ proof -
       then show ?thesis using Init c tag by (intro reachable_caps.Reg) auto
     qed
   next
-    case (Update j)
+    case (Update j v')
     then have *: "c \<in> writes_reg_caps CC (caps_of_regval ISA) (t ! j)"
       and "writes_to_reg (t ! j) = Some r"
       using c tag by auto
@@ -617,6 +621,7 @@ qed
 
 lemma reachable_caps_instr_trace_intradomain_monotonicity:
   assumes t: "hasTrace t (instr_sem ISA instr)"
+    and ta: "instr_assms t"
     and s': "s_run_trace t s = Some s'"
     and no_exception: "\<not>instr_raises_ex ISA instr t"
     and no_ccall: "\<not>invokes_caps ISA instr t"
@@ -624,18 +629,19 @@ lemma reachable_caps_instr_trace_intradomain_monotonicity:
     and translation_table_addrs_invariant: "s_invariant s_translation_tables t s"
     and no_caps_in_translation_tables: "s_invariant_holds no_caps_in_translation_tables t s"
   shows "reachable_caps s' \<subseteq> reachable_caps s"
-  using assms instr_cheri_axioms[OF t]
+  using assms instr_cheri_axioms[OF t ta]
   by (intro reachable_caps_trace_intradomain_monotonicity) auto
 
 lemma reachable_caps_fetch_trace_intradomain_monotonicity:
   assumes t: "hasTrace t (instr_fetch ISA)"
+    and ta: "fetch_assms t"
     and s': "s_run_trace t s = Some s'"
     and no_exception: "\<not>fetch_raises_ex ISA t"
     and addr_trans_inv: "s_invariant (\<lambda>s' addr load. s_translate_address addr load s') t s"
     and translation_table_addrs_invariant: "s_invariant s_translation_tables t s"
     and no_caps_in_translation_tables: "s_invariant_holds no_caps_in_translation_tables t s"
   shows "reachable_caps s' \<subseteq> reachable_caps s"
-  using assms fetch_cheri_axioms[OF t]
+  using assms fetch_cheri_axioms[OF t ta]
   by (intro reachable_caps_trace_intradomain_monotonicity) auto
 
 end
@@ -672,6 +678,7 @@ begin
 
 lemma reachable_caps_instrs_trace_intradomain_monotonicity:
   assumes t: "hasTrace t (fetch_execute_loop ISA n)"
+    and ta: "fetch_assms t"
     and s': "s_run_trace t s = Some s'"
     and no_exception: "\<not>instrs_raise_ex ISA n t"
     and no_ccall: "\<not>instrs_invoke_caps ISA n t"
@@ -712,6 +719,9 @@ next
       using tf s'' Bind Suc.prems
       using s_invariant_run_trace_eq[of no_caps_in_translation_tables tf s s'']
       by (auto simp: s_invariant_append)
+    have ta': "fetch_assms tf" "instr_assms t'"
+      using Bind Suc.prems fetch_assms_appendE
+      by auto
     from \<open>(\<lbrakk>instr\<rbrakk> \<then> fetch_execute_loop ISA n, t', m') \<in> Traces\<close>
     have "reachable_caps s' \<subseteq> reachable_caps s''"
     proof (cases rule: bind_Traces_cases)
@@ -720,7 +730,7 @@ next
         using m'
         by (auto elim!: final_bind_cases) (auto simp: hasTrace_iff_Traces_final final_def)
       then show ?thesis
-        using tf t' s'' Bind Suc.prems invs'
+        using tf t' s'' Bind Suc.prems invs' ta'
         by (intro reachable_caps_instr_trace_intradomain_monotonicity)
            (auto simp: runTrace_iff_Traces)
     next
@@ -738,6 +748,9 @@ next
         using invs' s''' Bind
         using s_invariant_run_trace_eq[of no_caps_in_translation_tables ti s'' s''']
         by (auto simp: s_invariant_append)
+      have ta'': "instr_assms ti" "fetch_assms t''"
+        using Bind ta' instr_assms_appendE
+        by auto
       have no_exception': "\<not>fetch_raises_ex ISA tf" "\<not>instr_raises_ex ISA instr ti"
         and no_ccall': "\<not>invokes_caps ISA instr ti"
         and no_exception'': "\<not>instrs_raise_ex ISA n t''"
@@ -746,16 +759,16 @@ next
         using \<open>Run (instr_fetch ISA) tf instr\<close>
         by (auto simp: runTrace_iff_Traces)
       then have "reachable_caps s' \<subseteq> reachable_caps s'''"
-        using Bind m' t'' invs''
+        using Bind m' t'' invs'' ta''
         by (intro Suc.IH) (auto simp: hasTrace_iff_Traces_final final_def)
       also have "reachable_caps s''' \<subseteq> reachable_caps s''"
-        using ti s''' no_exception' no_ccall' invs' \<open>t' = ti @ t''\<close>
+        using ti s''' no_exception' no_ccall' invs' \<open>t' = ti @ t''\<close> ta''
         by (intro reachable_caps_instr_trace_intradomain_monotonicity)
            (auto simp: s_invariant_append)
       finally show ?thesis .
     qed
     also have "reachable_caps s'' \<subseteq> reachable_caps s"
-      using tf s'' Bind Suc.prems
+      using tf s'' Bind Suc.prems ta'
       by (intro reachable_caps_fetch_trace_intradomain_monotonicity)
          (auto simp: s_invariant_append)
     finally show ?thesis .

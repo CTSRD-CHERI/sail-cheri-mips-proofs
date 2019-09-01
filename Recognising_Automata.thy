@@ -1428,44 +1428,42 @@ locale Mem_Automaton = Capability_ISA_Fixed_Translation where CC = CC and ISA = 
   fixes is_fetch :: bool
 begin
 
-definition paddr_in_mem_region :: "'cap \<Rightarrow> bool \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
-  "paddr_in_mem_region c is_load paddr sz =
+definition paddr_in_mem_region :: "'cap \<Rightarrow> acctype \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
+  "paddr_in_mem_region c acctype paddr sz =
      (\<exists>vaddr. set (address_range vaddr sz) \<subseteq> get_mem_region_method CC c \<and>
-              translate_address ISA vaddr is_load [] = Some paddr)"
+              translate_address ISA vaddr acctype [] = Some paddr)"
 
-definition has_access_permission :: "perms \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> bool" where
-  "has_access_permission perms is_load is_cap is_local_cap =
-     (if is_load \<and> is_fetch then
-        permit_execute perms
-      else if is_load then
-        permit_load perms \<and> (is_cap \<longrightarrow> permit_load_capability perms)
-      else
-        permit_store perms \<and> (is_cap \<longrightarrow> permit_store_capability perms) \<and> (is_local_cap \<longrightarrow> permit_store_local_capability perms))"
+definition has_access_permission :: "perms \<Rightarrow> acctype \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> bool" where
+  "has_access_permission perms acctype is_cap is_local_cap =
+     (case acctype of
+        Fetch \<Rightarrow> permit_execute perms
+      | Load \<Rightarrow> permit_load perms \<and> (is_cap \<longrightarrow> permit_load_capability perms)
+      | Store \<Rightarrow> permit_store perms \<and> (is_cap \<longrightarrow> permit_store_capability perms) \<and> (is_local_cap \<longrightarrow> permit_store_local_capability perms))"
 
-definition authorises_access :: "'cap \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
-  "authorises_access c is_load is_cap is_local_cap paddr sz =
-     (is_tagged_method CC c \<and> \<not>is_sealed_method CC c \<and> paddr_in_mem_region c is_load paddr sz \<and>
-      has_access_permission (get_perms_method CC c) is_load is_cap is_local_cap)"
+definition authorises_access :: "'cap \<Rightarrow> acctype \<Rightarrow> bool \<Rightarrow> bool \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> bool" where
+  "authorises_access c acctype is_cap is_local_cap paddr sz =
+     (is_tagged_method CC c \<and> \<not>is_sealed_method CC c \<and> paddr_in_mem_region c acctype paddr sz \<and>
+      has_access_permission (get_perms_method CC c) acctype is_cap is_local_cap)"
 
-definition access_enabled :: "('cap, 'regval) axiom_state \<Rightarrow> bool \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> memory_byte list \<Rightarrow> bitU \<Rightarrow> bool" where
-  "access_enabled s is_load paddr sz v tag =
-     ((tag = B0 \<or> tag = B1 \<or> is_load) \<and>
-      (is_load \<and> is_fetch \<longrightarrow> tag = B0) \<and>
-      (tag \<noteq> B0 \<longrightarrow> address_tag_aligned ISA paddr \<and> sz = tag_granule ISA) \<and>
-      (length v = sz \<or> is_load) \<and>
+definition access_enabled :: "('cap, 'regval) axiom_state \<Rightarrow> acctype \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> memory_byte list \<Rightarrow> bitU \<Rightarrow> bool" where
+  "access_enabled s acctype paddr sz v tag =
+     ((tag \<noteq> B0 \<longrightarrow> address_tag_aligned ISA paddr \<and> sz = tag_granule ISA) \<and>
+      (case acctype of Load \<Rightarrow> True
+         | Store \<Rightarrow> (tag = B0 \<or> tag = B1) \<and> length v = sz
+         | Fetch \<Rightarrow> tag = B0) \<and>
       (paddr \<in> translation_tables ISA [] \<or>
        (\<exists>c' \<in> derivable (accessed_caps s).
           let is_cap = tag \<noteq> B0 in
           let is_local_cap = mem_val_is_local_cap CC ISA v tag \<and> tag = B1 in
-          authorises_access c' is_load is_cap is_local_cap paddr sz)))"
+          authorises_access c' acctype is_cap is_local_cap paddr sz)))"
 
 lemmas access_enabled_defs = access_enabled_def authorises_access_def paddr_in_mem_region_def has_access_permission_def
 
 fun enabled :: "('cap, 'regval) axiom_state \<Rightarrow> 'regval event \<Rightarrow> bool" where
-  "enabled s (E_write_mem _ paddr sz v _) = access_enabled s False paddr sz v B0"
-| "enabled s (E_write_memt _ paddr sz v tag _) = access_enabled s False paddr sz v tag"
-| "enabled s (E_read_mem _ paddr sz v) = access_enabled s True paddr sz v B0"
-| "enabled s (E_read_memt _ paddr sz v_tag) = access_enabled s True paddr sz (fst v_tag) (snd v_tag)"
+  "enabled s (E_write_mem _ paddr sz v _) = access_enabled s Store paddr sz v B0"
+| "enabled s (E_write_memt _ paddr sz v tag _) = access_enabled s Store paddr sz v tag"
+| "enabled s (E_read_mem _ paddr sz v) = access_enabled s (if is_fetch then Fetch else Load) paddr sz v B0"
+| "enabled s (E_read_memt _ paddr sz v_tag) = access_enabled s (if is_fetch then Fetch else Load) paddr sz (fst v_tag) (snd v_tag)"
 | "enabled s _ = True"
 
 sublocale Cap_Axiom_Automaton where enabled = enabled ..
@@ -1489,11 +1487,11 @@ lemma accepts_store_tag_axiom:
 lemma accepts_load_mem_axiom:
   assumes *: "translation_assm t" and  **: "accepts t"
   shows "load_mem_axiom CC ISA is_fetch t"
-  using accepts_from_nth_enabledI[OF **]
   unfolding load_mem_axiom_def
   unfolding reads_mem_val_at_idx_def cap_derivable_iff_derivable
   unfolding fixed_translation_tables[OF *] fixed_translation[OF *]
-  by (fastforce simp: access_enabled_defs bind_eq_Some_conv elim!: reads_mem_val.elims)
+  by (auto simp: bind_eq_Some_conv elim!: reads_mem_val.elims dest!: accepts_from_nth_enabledI[OF **] split del: if_split;
+      cases is_fetch; fastforce simp: access_enabled_defs)
 
 lemma non_mem_event_enabledI:
   "enabled s e" if "non_mem_event e"
@@ -1555,7 +1553,7 @@ lemma traces_enabled_mem_axioms:
 
 end
 
-locale Store_Mem_Automaton = Capability_ISA_Fixed_Translation CC ISA
+(*locale Store_Mem_Automaton = Capability_ISA_Fixed_Translation CC ISA
   for CC :: "'cap Capability_class" and ISA :: "('cap, 'regval, 'instr, 'e) isa"
 begin
 
@@ -1568,7 +1566,7 @@ fun store_enabled :: "('cap, 'regval) axiom_state \<Rightarrow> nat \<Rightarrow
        (\<exists>c' vaddr. c' \<in> derivable (accessed_caps s) \<and>
           is_tagged_method CC c' \<and>
           \<not> is_sealed_method CC c' \<and>
-          translate_address ISA vaddr False [] = Some paddr \<and>
+          translate_address ISA vaddr Store [] = Some paddr \<and>
           set (address_range vaddr sz) \<subseteq> get_mem_region_method CC c' \<and>
           (if mem_val_is_cap CC ISA v tag \<and> tag = B1
            then permit_store_capability (get_perms_method CC c')
@@ -1683,7 +1681,7 @@ fun load_enabled :: "('cap, 'regval) axiom_state \<Rightarrow> nat \<Rightarrow>
         c' \<in> derivable (accessed_caps s) \<and>
         is_tagged_method CC c' \<and>
         \<not> is_sealed_method CC c' \<and>
-        translate_address ISA vaddr True [] = Some paddr \<and>
+        translate_address ISA vaddr (if is_fetch then Load else Fetch) [] = Some paddr \<and>
         set (address_range vaddr sz) \<subseteq> get_mem_region_method CC c' \<and>
         (if is_fetch \<and> tag = B0
          then permit_execute (get_perms_method CC c')
@@ -1757,6 +1755,6 @@ next
   qed
 qed
 
-end
+end*)
 
 end

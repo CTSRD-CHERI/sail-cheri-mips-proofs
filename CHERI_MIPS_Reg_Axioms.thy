@@ -2,7 +2,7 @@ theory CHERI_MIPS_Reg_Axioms
 imports CHERI_MIPS_Gen_Lemmas
 begin
 
-context CHERI_MIPS_Write_Cap_Automaton
+context CHERI_MIPS_Reg_Automaton
 begin
 
 lemma preserves_invariant_write_non_inv_regs[preserves_invariantI]:
@@ -151,6 +151,7 @@ lemma preserves_invariant_write_non_inv_regs[preserves_invariantI]:
   "\<And>v. traces_preserve_invariant (write_reg UART_RVALID_ref v)"
   "\<And>v. traces_preserve_invariant (write_reg UART_WDATA_ref v)"
   "\<And>v. traces_preserve_invariant (write_reg UART_WRITTEN_ref v)"
+  "\<And>v. traces_preserve_invariant (write_reg InstCount_ref v)"
   unfolding BranchPending_ref_def C01_ref_def C02_ref_def C03_ref_def C04_ref_def
      C05_ref_def C06_ref_def C07_ref_def C08_ref_def C09_ref_def
      C10_ref_def C11_ref_def C12_ref_def C13_ref_def C14_ref_def
@@ -180,10 +181,10 @@ lemma preserves_invariant_write_non_inv_regs[preserves_invariantI]:
      TLBEntry62_ref_def TLBEntry63_ref_def TLBEntryHi_ref_def TLBEntryLo0_ref_def TLBEntryLo1_ref_def
      TLBIndex_ref_def TLBPageMask_ref_def TLBProbe_ref_def TLBRandom_ref_def TLBWired_ref_def
      TLBXContext_ref_def UART_RDATA_ref_def UART_RVALID_ref_def UART_WDATA_ref_def UART_WRITTEN_ref_def
-    
+     InstCount_ref_def
   by (intro no_reg_writes_traces_preserve_invariantI no_reg_writes_to_write_reg; simp)+
 
-lemma preserves_invariant_no_writes_to_inv_regs[preserves_invariantI]:
+(*lemma preserves_invariant_no_writes_to_inv_regs[preserves_invariantI]:
   "\<And>arg0. traces_preserve_invariant (undefined_option arg0)"
   "\<And>arg0 arg1 arg2. traces_preserve_invariant (MIPS_write arg0 arg1 arg2)"
   "\<And>arg0 arg1. traces_preserve_invariant (MIPS_read arg0 arg1)"
@@ -318,161 +319,1063 @@ lemma preserves_invariant_no_writes_to_inv_regs[preserves_invariantI]:
   "\<And>arg0. traces_preserve_invariant (get_CP0ErrorEPC arg0)"
   "\<And>arg0. traces_preserve_invariant (set_CP0ErrorEPC arg0)"
   "\<And>arg0. traces_preserve_invariant (dump_cp2_state arg0)"
-  (*"\<And>arg0. traces_preserve_invariant (TLBWriteEntry arg0)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_XORI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_XOR arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_WAIT arg0)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_TRAPREG arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_TRAPIMM arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_TLBWR arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_TLBWI arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_TLBR arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_TLBP arg0)"
-  "\<And>arg0 arg1 arg2 arg3 arg4. traces_preserve_invariant (execute_Store arg0 arg1 arg2 arg3 arg4)"
-  "\<And>arg0. traces_preserve_invariant (execute_SYSCALL arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_SYNC arg0)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SWR arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SWL arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SUBU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SUB arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SRLV arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SRL arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SRAV arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SRA arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SLTU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SLTIU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SLTI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SLT arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SLLV arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SLL arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SDR arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_SDL arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_RI arg0)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_RDHWR arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_ORI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_OR arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_NOR arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_MULTU arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_MULT arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_MUL arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_MTLO arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_MTHI arg0)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_MTC0 arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_MSUBU arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_MSUB arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_MOVZ arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_MOVN arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_MFLO arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_MFHI arg0)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_MFC0 arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_MADDU arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_MADD arg0 arg1)"
-  "\<And>arg0 arg1 arg2 arg3 arg4 arg5. traces_preserve_invariant (execute_Load arg0 arg1 arg2 arg3 arg4 arg5)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_LWR arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_LWL arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_LUI arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_LDR arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_LDL arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_JR arg0)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_JALR arg0 arg1)"
-  "\<And>arg0. traces_preserve_invariant (execute_JAL arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_J arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_ERET arg0)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSUBU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSUB arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSRLV arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSRL32 arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSRL arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSRAV arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSRA32 arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSRA arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSLLV arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSLL32 arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DSLL arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_DMULTU arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_DMULT arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_DIVU arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_DIV arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_DDIVU arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_DDIV arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DADDU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DADDIU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DADDI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_DADD arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_ClearRegs arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CWriteHwr arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CUnseal arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CToPtr arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CTestSubset arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSub arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_CStoreConditional arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1 arg2 arg3 arg4. traces_preserve_invariant (execute_CStore arg0 arg1 arg2 arg3 arg4)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSetOffset arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSetFlags arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_CSetCause arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_CSetCID arg0)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSetBoundsImmediate arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSetBoundsExact arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSetBounds arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSetAddr arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSeal arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CSCC arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_CSC arg0 arg1 arg2 arg3)"
-  "\<And>arg0. traces_preserve_invariant (execute_CReturn arg0)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CReadHwr arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CRAP arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CRAM arg0 arg1)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_CPtrCmp arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CMove arg0 arg1)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_CMOVX arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CLoadTags arg0 arg1)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_CLoadLinked arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1 arg2 arg3 arg4 arg5. traces_preserve_invariant (execute_CLoad arg0 arg1 arg2 arg3 arg4 arg5)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CLLC arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CLCBI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (execute_CLC arg0 arg1 arg2 arg3)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CJALR arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CIncOffsetImmediate arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CIncOffset arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetType arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetTag arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetSealed arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetPerm arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetPCCSetOffset arg0 arg1)"
-  "\<And>arg0. traces_preserve_invariant (execute_CGetPCC arg0)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetOffset arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetLen arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetFlags arg0 arg1)"
-  "\<And>arg0. traces_preserve_invariant (execute_CGetCause arg0)"
-  "\<And>arg0. traces_preserve_invariant (execute_CGetCID arg0)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetBase arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CGetAndAddr arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CGetAddr arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CFromPtr arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CCopyType arg0 arg1 arg2)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CClearTag arg0 arg1)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CCheckType arg0 arg1)"
-  "\<And>arg0. traces_preserve_invariant (execute_CCheckTag arg0)"
-  "\<And>arg0 arg1. traces_preserve_invariant (execute_CCheckPerm arg0 arg1)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CCall arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CCSeal arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CBuildCap arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CBZ arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CBX arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CAndPerm arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CAndAddr arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_CACHE arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute_BREAK arg0)"
-  "\<And>arg0 arg1 arg2 arg3 arg4. traces_preserve_invariant (execute_BEQ arg0 arg1 arg2 arg3 arg4)"
-  "\<And>arg0 arg1 arg2 arg3 arg4. traces_preserve_invariant (execute_BCMPZ arg0 arg1 arg2 arg3 arg4)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_ANDI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_AND arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_ADDU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_ADDIU arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_ADDI arg0 arg1 arg2)"
-  "\<And>arg0 arg1 arg2. traces_preserve_invariant (execute_ADD arg0 arg1 arg2)"
-  "\<And>arg0. traces_preserve_invariant (execute arg0)"*)
+  by (intro no_reg_writes_traces_preserve_invariantI no_reg_writes_toI; simp)+*)
+
+lemma preserves_invariant_no_writes_to_inv_regs[preserves_invariantI]:
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MIPS_write arg0 arg1 arg2)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MIPS_read arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CauseReg_BD arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CauseReg_CE arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CauseReg_IV arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CauseReg_IP arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CauseReg_ExcCode arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_bits arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_CapS arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_CapL arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_PFN arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_C arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_D arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_V arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryLoReg_G arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryHiReg_R arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryHiReg_VPN2 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntryHiReg_ASID arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_ContextReg_PTEBase arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_ContextReg_BadVPN2 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_XContextReg_XPTEBase arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_XContextReg_XR arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_XContextReg_XBadVPN2 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_pagemask arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_r arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_vpn2 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_asid arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_g arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_valid arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_caps1 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_capl1 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_pfn1 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_c1 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_d1 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_v1 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_caps0 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_capl0 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_pfn0 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_c0 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_d0 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_TLBEntry_v0 arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_CU arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_BEV arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_IM arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_KX arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_SX arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_UX arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_KSU arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_ERL arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_EXL arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_StatusReg_IE arg0 arg1)"
+  "\<And>arg0. traces_preserve_invariant (execute_branch_mips arg0)"
+  "\<And>arg0. traces_preserve_invariant (rGPR arg0)"
+  "\<And>arg0 arg1. traces_preserve_invariant (wGPR arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MEMr arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MEMr_reserve arg0 arg1)"
+  "\<And>arg0. traces_preserve_invariant (MEM_sync arg0)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MEMea arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MEMea_conditional arg0 arg1)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MEMval arg0 arg1 arg2)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MEMval_conditional arg0 arg1 arg2)"
+  "\<And>arg0. traces_preserve_invariant (exceptionVectorOffset arg0)"
+  "\<And>arg0. traces_preserve_invariant (exceptionVectorBase arg0)"
+  "\<And>arg0. traces_preserve_invariant (updateBadInstr arg0)"
+  "\<And>arg0. traces_preserve_invariant (set_next_pcc arg0)"
+  "\<And>arg0. traces_preserve_invariant (SignalException arg0)"
+  "\<And>arg0 arg1. traces_preserve_invariant (SignalExceptionBadAddr arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (SignalExceptionTLB arg0 arg1)"
+  "\<And>arg0. traces_preserve_invariant (getAccessLevel arg0)"
+  "\<And>arg0. traces_preserve_invariant (pcc_access_system_regs arg0)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CapCauseReg_ExcCode arg0 arg1)"
+  "\<And>arg0 arg1. name arg0 \<notin> inv_regs \<Longrightarrow> traces_preserve_invariant (set_CapCauseReg_RegNum arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (raise_c2_exception8 arg0 arg1)"
+  "\<And>arg0. traces_preserve_invariant (raise_c2_exception_noreg arg0)"
+  "\<And>arg0. traces_preserve_invariant (checkCP0AccessHook arg0)"
+  "\<And>arg0. traces_preserve_invariant (checkCP0Access arg0)"
+  "\<And>arg0. traces_preserve_invariant (incrementCP0Count arg0)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MEMr_wrapper arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (MEMr_reserve_wrapper arg0 arg1)"
+  "\<And>arg0. traces_preserve_invariant (tlbSearch arg0)"
+  "\<And>arg0 arg1. traces_preserve_invariant (TLBTranslate2 arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (TLBTranslateC arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (TLBTranslate arg0 arg1)"
+  "\<And>arg0 arg1. traces_preserve_invariant (capToString arg0 arg1)"
+  "\<And>arg0. traces_preserve_invariant (execute_branch_pcc arg0)"
+  "\<And>arg0. traces_preserve_invariant (ERETHook arg0)"
+  "\<And>arg0 arg1. traces_preserve_invariant (raise_c2_exception arg0 arg1)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MEMr_tagged arg0 arg1 arg2)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MEMr_tagged_reserve arg0 arg1 arg2)"
+  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (MEMw_tagged arg0 arg1 arg2 arg3)"
+  "\<And>arg0 arg1 arg2 arg3. traces_preserve_invariant (MEMw_tagged_conditional arg0 arg1 arg2 arg3)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MEMw_wrapper arg0 arg1 arg2)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (MEMw_conditional_wrapper arg0 arg1 arg2)"
+  "\<And>arg0 arg1. traces_preserve_invariant (checkDDCPerms arg0 arg1)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (addrWrapper arg0 arg1 arg2)"
+  "\<And>arg0 arg1 arg2. traces_preserve_invariant (addrWrapperUnaligned arg0 arg1 arg2)"
+  "\<And>arg0. traces_preserve_invariant (execute_branch arg0)"
+  "\<And>arg0. traces_preserve_invariant (checkCP2usable arg0)"
+  "\<And>arg0. traces_preserve_invariant (get_CP0EPC arg0)"
+  "\<And>arg0. traces_preserve_invariant (set_CP0EPC arg0)"
+  "\<And>arg0. traces_preserve_invariant (get_CP0ErrorEPC arg0)"
+  "\<And>arg0. traces_preserve_invariant (set_CP0ErrorEPC arg0)"
   by (intro no_reg_writes_traces_preserve_invariantI no_reg_writes_toI; simp)+
+
+lemma preserves_invariant_write_reg[preserves_invariantI]:
+  assumes "name r \<notin> inv_regs"
+  shows "traces_preserve_invariant (write_reg r v)"
+  using assms
+  by (intro no_reg_writes_traces_preserve_invariantI no_reg_writes_toI)
+
+lemma preserves_invariant_TLBWriteEntry[preserves_invariantI]:
+  "traces_preserve_invariant (TLBWriteEntry idx)"
+  unfolding TLBWriteEntry_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_option[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_option arg0)"
+  unfolding undefined_option_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_exception[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_exception arg0)"
+  unfolding undefined_exception_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_CauseReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_CauseReg arg0)"
+  unfolding undefined_CauseReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_CauseReg_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_CauseReg_bits arg0 arg1)"
+  using assms
+  unfolding set_CauseReg_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_CauseReg_WP[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_CauseReg_WP arg0 arg1)"
+  using assms
+  unfolding set_CauseReg_WP_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_TLBEntryLoReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_TLBEntryLoReg arg0)"
+  unfolding undefined_TLBEntryLoReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_TLBEntryHiReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_TLBEntryHiReg arg0)"
+  unfolding undefined_TLBEntryHiReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_TLBEntryHiReg_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_TLBEntryHiReg_bits arg0 arg1)"
+  using assms
+  unfolding set_TLBEntryHiReg_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_ContextReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_ContextReg arg0)"
+  unfolding undefined_ContextReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_ContextReg_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_ContextReg_bits arg0 arg1)"
+  using assms
+  unfolding set_ContextReg_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_XContextReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_XContextReg arg0)"
+  unfolding undefined_XContextReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_XContextReg_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_XContextReg_bits arg0 arg1)"
+  using assms
+  unfolding set_XContextReg_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_TLBEntry[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_TLBEntry arg0)"
+  unfolding undefined_TLBEntry_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_TLBEntry_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_TLBEntry_bits arg0 arg1)"
+  using assms
+  unfolding set_TLBEntry_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_StatusReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_StatusReg arg0)"
+  unfolding undefined_StatusReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_StatusReg_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_StatusReg_bits arg0 arg1)"
+  using assms
+  unfolding set_StatusReg_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_Exception[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_Exception arg0)"
+  unfolding undefined_Exception_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_Capability[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_Capability arg0)"
+  unfolding undefined_Capability_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_MemAccessType[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_MemAccessType arg0)"
+  unfolding undefined_MemAccessType_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_AccessLevel[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_AccessLevel arg0)"
+  unfolding undefined_AccessLevel_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_CapCauseReg[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_CapCauseReg arg0)"
+  unfolding undefined_CapCauseReg_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_decode_failure[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_decode_failure arg0)"
+  unfolding undefined_decode_failure_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_Comparison[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_Comparison arg0)"
+  unfolding undefined_Comparison_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_WordType[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_WordType arg0)"
+  unfolding undefined_WordType_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_WordTypeUnaligned[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_WordTypeUnaligned arg0)"
+  unfolding undefined_WordTypeUnaligned_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_init_cp0_state[preserves_invariantI]:
+  "runs_preserve_invariant (init_cp0_state arg0)"
+  unfolding init_cp0_state_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_CPtrCmpOp[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_CPtrCmpOp arg0)"
+  unfolding undefined_CPtrCmpOp_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_ClearRegSet[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_ClearRegSet arg0)"
+  unfolding undefined_ClearRegSet_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_undefined_CapEx[preserves_invariantI]:
+  "runs_preserve_invariant (undefined_CapEx arg0)"
+  unfolding undefined_CapEx_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_set_CapCauseReg_bits[preserves_invariantI]:
+  assumes "name arg0 \<notin> inv_regs"
+  shows "runs_preserve_invariant (set_CapCauseReg_bits arg0 arg1)"
+  using assms
+  unfolding set_CapCauseReg_bits_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_TranslatePC[preserves_invariantI]:
+  "runs_preserve_invariant (TranslatePC arg0)"
+  unfolding TranslatePC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_dump_cp2_state[preserves_invariantI]:
+  "runs_preserve_invariant (dump_cp2_state arg0)"
+  unfolding dump_cp2_state_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_XORI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_XORI arg0 arg1 arg2)"
+  unfolding execute_XORI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_XOR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_XOR arg0 arg1 arg2)"
+  unfolding execute_XOR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_WAIT[preserves_invariantI]:
+  "runs_preserve_invariant (execute_WAIT arg0)"
+  unfolding execute_WAIT_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_TRAPREG[preserves_invariantI]:
+  "runs_preserve_invariant (execute_TRAPREG arg0 arg1 arg2)"
+  unfolding execute_TRAPREG_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_TRAPIMM[preserves_invariantI]:
+  "runs_preserve_invariant (execute_TRAPIMM arg0 arg1 arg2)"
+  unfolding execute_TRAPIMM_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_TLBWR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_TLBWR arg0)"
+  unfolding execute_TLBWR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_TLBWI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_TLBWI arg0)"
+  unfolding execute_TLBWI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_TLBR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_TLBR arg0)"
+  unfolding execute_TLBR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_TLBP[preserves_invariantI]:
+  "runs_preserve_invariant (execute_TLBP arg0)"
+  unfolding execute_TLBP_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_Store[preserves_invariantI]:
+  "runs_preserve_invariant (execute_Store arg0 arg1 arg2 arg3 arg4)"
+  unfolding execute_Store_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SYSCALL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SYSCALL arg0)"
+  unfolding execute_SYSCALL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SYNC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SYNC arg0)"
+  unfolding execute_SYNC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SWR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SWR arg0 arg1 arg2)"
+  unfolding execute_SWR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SWL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SWL arg0 arg1 arg2)"
+  unfolding execute_SWL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SUBU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SUBU arg0 arg1 arg2)"
+  unfolding execute_SUBU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SUB[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SUB arg0 arg1 arg2)"
+  unfolding execute_SUB_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SRLV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SRLV arg0 arg1 arg2)"
+  unfolding execute_SRLV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SRL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SRL arg0 arg1 arg2)"
+  unfolding execute_SRL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SRAV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SRAV arg0 arg1 arg2)"
+  unfolding execute_SRAV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SRA[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SRA arg0 arg1 arg2)"
+  unfolding execute_SRA_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SLTU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SLTU arg0 arg1 arg2)"
+  unfolding execute_SLTU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SLTIU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SLTIU arg0 arg1 arg2)"
+  unfolding execute_SLTIU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SLTI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SLTI arg0 arg1 arg2)"
+  unfolding execute_SLTI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SLT[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SLT arg0 arg1 arg2)"
+  unfolding execute_SLT_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SLLV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SLLV arg0 arg1 arg2)"
+  unfolding execute_SLLV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SLL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SLL arg0 arg1 arg2)"
+  unfolding execute_SLL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SDR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SDR arg0 arg1 arg2)"
+  unfolding execute_SDR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_SDL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_SDL arg0 arg1 arg2)"
+  unfolding execute_SDL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_RI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_RI arg0)"
+  unfolding execute_RI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_RDHWR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_RDHWR arg0 arg1)"
+  unfolding execute_RDHWR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ORI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ORI arg0 arg1 arg2)"
+  unfolding execute_ORI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_OR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_OR arg0 arg1 arg2)"
+  unfolding execute_OR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_NOR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_NOR arg0 arg1 arg2)"
+  unfolding execute_NOR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MULTU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MULTU arg0 arg1)"
+  unfolding execute_MULTU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MULT[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MULT arg0 arg1)"
+  unfolding execute_MULT_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MUL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MUL arg0 arg1 arg2)"
+  unfolding execute_MUL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MTLO[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MTLO arg0)"
+  unfolding execute_MTLO_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MTHI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MTHI arg0)"
+  unfolding execute_MTHI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MTC0[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MTC0 arg0 arg1 arg2 arg3)"
+  unfolding execute_MTC0_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MSUBU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MSUBU arg0 arg1)"
+  unfolding execute_MSUBU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MSUB[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MSUB arg0 arg1)"
+  unfolding execute_MSUB_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MOVZ[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MOVZ arg0 arg1 arg2)"
+  unfolding execute_MOVZ_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MOVN[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MOVN arg0 arg1 arg2)"
+  unfolding execute_MOVN_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MFLO[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MFLO arg0)"
+  unfolding execute_MFLO_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MFHI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MFHI arg0)"
+  unfolding execute_MFHI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MFC0[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MFC0 arg0 arg1 arg2 arg3)"
+  unfolding execute_MFC0_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MADDU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MADDU arg0 arg1)"
+  unfolding execute_MADDU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_MADD[preserves_invariantI]:
+  "runs_preserve_invariant (execute_MADD arg0 arg1)"
+  unfolding execute_MADD_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_Load[preserves_invariantI]:
+  "runs_preserve_invariant (execute_Load arg0 arg1 arg2 arg3 arg4 arg5)"
+  unfolding execute_Load_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_LWR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_LWR arg0 arg1 arg2)"
+  unfolding execute_LWR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_LWL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_LWL arg0 arg1 arg2)"
+  unfolding execute_LWL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_LUI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_LUI arg0 arg1)"
+  unfolding execute_LUI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_LDR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_LDR arg0 arg1 arg2)"
+  unfolding execute_LDR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_LDL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_LDL arg0 arg1 arg2)"
+  unfolding execute_LDL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_JR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_JR arg0)"
+  unfolding execute_JR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_JALR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_JALR arg0 arg1)"
+  unfolding execute_JALR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_JAL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_JAL arg0)"
+  unfolding execute_JAL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_J[preserves_invariantI]:
+  "runs_preserve_invariant (execute_J arg0)"
+  unfolding execute_J_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ERET[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ERET arg0)"
+  unfolding execute_ERET_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSUBU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSUBU arg0 arg1 arg2)"
+  unfolding execute_DSUBU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSUB[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSUB arg0 arg1 arg2)"
+  unfolding execute_DSUB_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSRLV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSRLV arg0 arg1 arg2)"
+  unfolding execute_DSRLV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSRL32[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSRL32 arg0 arg1 arg2)"
+  unfolding execute_DSRL32_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSRL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSRL arg0 arg1 arg2)"
+  unfolding execute_DSRL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSRAV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSRAV arg0 arg1 arg2)"
+  unfolding execute_DSRAV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSRA32[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSRA32 arg0 arg1 arg2)"
+  unfolding execute_DSRA32_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSRA[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSRA arg0 arg1 arg2)"
+  unfolding execute_DSRA_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSLLV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSLLV arg0 arg1 arg2)"
+  unfolding execute_DSLLV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSLL32[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSLL32 arg0 arg1 arg2)"
+  unfolding execute_DSLL32_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DSLL[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DSLL arg0 arg1 arg2)"
+  unfolding execute_DSLL_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DMULTU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DMULTU arg0 arg1)"
+  unfolding execute_DMULTU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DMULT[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DMULT arg0 arg1)"
+  unfolding execute_DMULT_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DIVU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DIVU arg0 arg1)"
+  unfolding execute_DIVU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DIV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DIV arg0 arg1)"
+  unfolding execute_DIV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DDIVU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DDIVU arg0 arg1)"
+  unfolding execute_DDIVU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DDIV[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DDIV arg0 arg1)"
+  unfolding execute_DDIV_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DADDU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DADDU arg0 arg1 arg2)"
+  unfolding execute_DADDU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DADDIU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DADDIU arg0 arg1 arg2)"
+  unfolding execute_DADDIU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DADDI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DADDI arg0 arg1 arg2)"
+  unfolding execute_DADDI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_DADD[preserves_invariantI]:
+  "runs_preserve_invariant (execute_DADD arg0 arg1 arg2)"
+  unfolding execute_DADD_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ClearRegs[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ClearRegs arg0 arg1)"
+  unfolding execute_ClearRegs_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CWriteHwr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CWriteHwr arg0 arg1)"
+  unfolding execute_CWriteHwr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CUnseal[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CUnseal arg0 arg1 arg2)"
+  unfolding execute_CUnseal_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CToPtr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CToPtr arg0 arg1 arg2)"
+  unfolding execute_CToPtr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CTestSubset[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CTestSubset arg0 arg1 arg2)"
+  unfolding execute_CTestSubset_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSub[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSub arg0 arg1 arg2)"
+  unfolding execute_CSub_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CStoreConditional[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CStoreConditional arg0 arg1 arg2 arg3)"
+  unfolding execute_CStoreConditional_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CStore[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CStore arg0 arg1 arg2 arg3 arg4)"
+  unfolding execute_CStore_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetOffset[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetOffset arg0 arg1 arg2)"
+  unfolding execute_CSetOffset_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetFlags[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetFlags arg0 arg1 arg2)"
+  unfolding execute_CSetFlags_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetCause[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetCause arg0)"
+  unfolding execute_CSetCause_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetCID[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetCID arg0)"
+  unfolding execute_CSetCID_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetBoundsImmediate[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetBoundsImmediate arg0 arg1 arg2)"
+  unfolding execute_CSetBoundsImmediate_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetBoundsExact[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetBoundsExact arg0 arg1 arg2)"
+  unfolding execute_CSetBoundsExact_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetBounds[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetBounds arg0 arg1 arg2)"
+  unfolding execute_CSetBounds_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSetAddr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSetAddr arg0 arg1 arg2)"
+  unfolding execute_CSetAddr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSeal[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSeal arg0 arg1 arg2)"
+  unfolding execute_CSeal_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSCC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSCC arg0 arg1 arg2)"
+  unfolding execute_CSCC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CSC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CSC arg0 arg1 arg2 arg3)"
+  unfolding execute_CSC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CReturn[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CReturn arg0)"
+  unfolding execute_CReturn_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CReadHwr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CReadHwr arg0 arg1)"
+  unfolding execute_CReadHwr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CRAP[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CRAP arg0 arg1)"
+  unfolding execute_CRAP_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CRAM[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CRAM arg0 arg1)"
+  unfolding execute_CRAM_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CPtrCmp[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CPtrCmp arg0 arg1 arg2 arg3)"
+  unfolding execute_CPtrCmp_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CMove[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CMove arg0 arg1)"
+  unfolding execute_CMove_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CMOVX[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CMOVX arg0 arg1 arg2 arg3)"
+  unfolding execute_CMOVX_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CLoadTags[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CLoadTags arg0 arg1)"
+  unfolding execute_CLoadTags_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CLoadLinked[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CLoadLinked arg0 arg1 arg2 arg3)"
+  unfolding execute_CLoadLinked_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CLoad[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CLoad arg0 arg1 arg2 arg3 arg4 arg5)"
+  unfolding execute_CLoad_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CLLC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CLLC arg0 arg1)"
+  unfolding execute_CLLC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CLCBI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CLCBI arg0 arg1 arg2)"
+  unfolding execute_CLCBI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CLC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CLC arg0 arg1 arg2 arg3)"
+  unfolding execute_CLC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CJALR[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CJALR arg0 arg1 arg2)"
+  unfolding execute_CJALR_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CIncOffsetImmediate[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CIncOffsetImmediate arg0 arg1 arg2)"
+  unfolding execute_CIncOffsetImmediate_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CIncOffset[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CIncOffset arg0 arg1 arg2)"
+  unfolding execute_CIncOffset_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetType[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetType arg0 arg1)"
+  unfolding execute_CGetType_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetTag[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetTag arg0 arg1)"
+  unfolding execute_CGetTag_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetSealed[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetSealed arg0 arg1)"
+  unfolding execute_CGetSealed_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetPerm[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetPerm arg0 arg1)"
+  unfolding execute_CGetPerm_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetPCCSetOffset[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetPCCSetOffset arg0 arg1)"
+  unfolding execute_CGetPCCSetOffset_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetPCC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetPCC arg0)"
+  unfolding execute_CGetPCC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetOffset[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetOffset arg0 arg1)"
+  unfolding execute_CGetOffset_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetLen[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetLen arg0 arg1)"
+  unfolding execute_CGetLen_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetFlags[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetFlags arg0 arg1)"
+  unfolding execute_CGetFlags_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetCause[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetCause arg0)"
+  unfolding execute_CGetCause_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetCID[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetCID arg0)"
+  unfolding execute_CGetCID_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetBase[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetBase arg0 arg1)"
+  unfolding execute_CGetBase_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetAndAddr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetAndAddr arg0 arg1 arg2)"
+  unfolding execute_CGetAndAddr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CGetAddr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CGetAddr arg0 arg1)"
+  unfolding execute_CGetAddr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CFromPtr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CFromPtr arg0 arg1 arg2)"
+  unfolding execute_CFromPtr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CCopyType[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCopyType arg0 arg1 arg2)"
+  unfolding execute_CCopyType_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CClearTag[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CClearTag arg0 arg1)"
+  unfolding execute_CClearTag_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CCheckType[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCheckType arg0 arg1)"
+  unfolding execute_CCheckType_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CCheckTag[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCheckTag arg0)"
+  unfolding execute_CCheckTag_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CCheckPerm[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCheckPerm arg0 arg1)"
+  unfolding execute_CCheckPerm_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CCall[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCall arg0 arg1 arg2)"
+  unfolding execute_CCall_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CCSeal[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCSeal arg0 arg1 arg2)"
+  unfolding execute_CCSeal_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CBuildCap[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CBuildCap arg0 arg1 arg2)"
+  unfolding execute_CBuildCap_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CBZ[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CBZ arg0 arg1 arg2)"
+  unfolding execute_CBZ_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CBX[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CBX arg0 arg1 arg2)"
+  unfolding execute_CBX_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CAndPerm[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CAndPerm arg0 arg1 arg2)"
+  unfolding execute_CAndPerm_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CAndAddr[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CAndAddr arg0 arg1 arg2)"
+  unfolding execute_CAndAddr_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CACHE[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CACHE arg0 arg1 arg2)"
+  unfolding execute_CACHE_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_BREAK[preserves_invariantI]:
+  "runs_preserve_invariant (execute_BREAK arg0)"
+  unfolding execute_BREAK_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_BEQ[preserves_invariantI]:
+  "runs_preserve_invariant (execute_BEQ arg0 arg1 arg2 arg3 arg4)"
+  unfolding execute_BEQ_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_BCMPZ[preserves_invariantI]:
+  "runs_preserve_invariant (execute_BCMPZ arg0 arg1 arg2 arg3 arg4)"
+  unfolding execute_BCMPZ_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ANDI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ANDI arg0 arg1 arg2)"
+  unfolding execute_ANDI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_AND[preserves_invariantI]:
+  "runs_preserve_invariant (execute_AND arg0 arg1 arg2)"
+  unfolding execute_AND_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ADDU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ADDU arg0 arg1 arg2)"
+  unfolding execute_ADDU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ADDIU[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ADDIU arg0 arg1 arg2)"
+  unfolding execute_ADDIU_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ADDI[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ADDI arg0 arg1 arg2)"
+  unfolding execute_ADDI_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_ADD[preserves_invariantI]:
+  "runs_preserve_invariant (execute_ADD arg0 arg1 arg2)"
+  unfolding execute_ADD_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute[preserves_invariantI]:
+  "runs_preserve_invariant (execute instr)"
+  by (cases instr rule: execute.cases; simp; preserves_invariantI)
 
 lemma traces_enabled_write_cap_regs[traces_enabledI]:
   assumes "c \<in> derivable_caps s"
@@ -643,7 +1546,7 @@ lemma read_cap_regs_derivable[derivable_capsE]:
 
 end
 
-context CHERI_MIPS_Write_Cap_Automaton
+context CHERI_MIPS_Reg_Automaton
 begin
 
 lemmas non_cap_exp_traces_enabled[traces_enabledI] = non_cap_expI[THEN non_cap_exp_traces_enabledI]
@@ -1995,7 +2898,7 @@ lemma traces_enabled_instr_sem[traces_enabledI]:
   shows "traces_enabled (instr_sem ISA instr) s regs"
   by (cases instr rule: execute.cases; simp; use nothing in \<open>traces_enabledI assms: assms\<close>)
 
-lemma hasTrace_store_cap_reg_read_reg_axioms:
+lemma hasTrace_reg_axioms:
   assumes "hasTrace t (instr_sem ISA instr)"
     and "reads_regs_from inv_regs t regs" and "invariant regs"
     and "hasException t (instr_sem ISA instr) \<or> hasFailure t (instr_sem ISA instr) \<longrightarrow> ex_traces"

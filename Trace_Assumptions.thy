@@ -691,4 +691,215 @@ lemma preserves_invariant_foreachM[preserves_invariantI]:
 
 end
 
+subsection \<open>Deterministic expressions\<close>
+
+context State_Invariant
+begin
+
+definition "Traces_inv regs \<equiv> {(m, t, m') | m t m'. (m, t, m') \<in> Traces \<and> reads_regs_from inv_regs t regs \<and> invariant regs \<and> final m'}"
+definition "determ_traces m \<equiv> (\<forall>t1 m1' regs1 t2 m2' regs2. (m, t1, m1') \<in> Traces_inv regs1 \<and> (m, t2, m2') \<in> Traces_inv regs2 \<longrightarrow> m1' = m2')"
+definition "determ_runs m \<equiv> (\<forall>t1 a1 regs1 t2 a2 regs2. Run_inv m t1 a1 regs1 \<and> Run_inv m t2 a2 regs2 \<longrightarrow> a1 = a2)"
+definition "the_outcome m \<equiv> (THE m'. \<exists>t regs. (m, t, m') \<in> Traces_inv regs)"
+definition "the_result m \<equiv> (THE a. \<exists>t regs. Run_inv m t a regs)"
+
+lemma in_Traces_inv_iff:
+  "(m, t, m') \<in> Traces_inv regs \<longleftrightarrow> (m, t, m') \<in> Traces \<and> reads_regs_from inv_regs t regs \<and> invariant regs \<and> final m'"
+  by (auto simp: Traces_inv_def)
+
+lemma Run_inv_iff_Traces_inv:
+  "Run_inv m t a regs \<longleftrightarrow> (m, t, Done a) \<in> Traces_inv regs"
+  unfolding Run_inv_def in_Traces_inv_iff
+  by (auto simp: final_def)
+
+lemma determ_tracesI:
+  assumes "\<And>t m'' regs. (m, t, m'') \<in> Traces_inv regs \<Longrightarrow> m'' = m'"
+  shows "determ_traces m"
+  using assms
+  unfolding determ_traces_def
+  by blast
+
+lemma determ_runsI:
+  assumes "\<And>t a regs. Run_inv m t a regs \<Longrightarrow> a = c"
+  shows "determ_runs m"
+  using assms
+  unfolding determ_runs_def
+  by blast
+
+named_theorems determ
+
+lemma determ_the_outcome_eq:
+  assumes "determ_traces m" and "(m, t, m') \<in> Traces_inv regs"
+  shows "the_outcome m = m'"
+  using assms
+  unfolding the_outcome_def determ_traces_def in_Traces_inv_iff
+  by blast
+
+lemma determ_the_result_eq:
+  assumes "determ_runs m" and "Run_inv m t a regs"
+  shows "the_result m = a"
+  using assms
+  unfolding the_result_def determ_runs_def
+  by blast
+
+lemma determ_traces_runs:
+  assumes "determ_traces m"
+  shows "determ_runs m"
+  using assms
+  unfolding determ_traces_def determ_runs_def Run_inv_iff_Traces_inv
+  by blast
+
+lemma determ_runs_return[determ]: "determ_runs (return a)"
+  by (auto simp: determ_runs_def Run_inv_def)
+
+lemma determ_traces_return[determ]: "determ_traces (return a)"
+  by (auto simp: determ_traces_def in_Traces_inv_iff)
+
+lemma determ_traces_throw[determ]: "determ_traces (throw e)"
+  by (auto simp: determ_traces_def in_Traces_inv_iff)
+
+lemma determ_runs_bindI:
+  assumes "determ_runs m" and "determ_runs (f (the_result m))" and "runs_preserve_invariant m"
+  shows "determ_runs (m \<bind> f)"
+  using assms
+  by (intro determ_runsI[where c = "the_result (f (the_result m))"])
+     (auto elim!: Run_inv_bindE simp: determ_the_result_eq)
+
+lemma final_simps[intro, simp]:
+  "final (Exception e)"
+  "final (Fail msg)"
+  by (auto simp: final_def)
+
+lemma runs_preserve_invariant_Run_invariant[simp]:
+  assumes "runs_preserve_invariant m"
+    and "Run m t a" and "invariant s" and "reads_regs_from inv_regs t s"
+  shows "invariant (the (updates_regs inv_regs t s))"
+  using assms
+  by (auto elim!: runs_preserve_invariantE)
+
+lemma traces_preserve_invariant_Traces_invariant[simp]:
+  assumes "traces_preserve_invariant m"
+    and "(m, t, m') \<in> Traces" and "invariant s" and "reads_regs_from inv_regs t s"
+  shows "invariant (the (updates_regs inv_regs t s))"
+  using assms
+  by (auto elim!: traces_preserve_invariantE)
+
+lemma bind_Traces_inv_cases:
+  assumes "(m \<bind> f, t, m') \<in> Traces_inv regs" and "runs_preserve_invariant m"
+  obtains (Ex) e where "(m, t, Exception e) \<in> Traces_inv regs" and "m' = Exception e"
+  | (Fail) msg where "(m, t, Fail msg) \<in> Traces_inv regs" and "m' = Fail msg"
+  | (Bind) tm am tf where "t = tm @ tf" and "Run_inv m tm am regs"
+      and "(f am, tf, m') \<in> Traces_inv (the (updates_regs inv_regs tm regs))"
+  using assms Bind[of t "[]"]
+  unfolding in_Traces_inv_iff
+  by (auto elim!: bind_Traces_cases final_bind_cases simp: Run_inv_def regstate_simp elim: final_cases)
+
+lemma determ_traces_bindI:
+  assumes "determ_traces m" and "runs_preserve_invariant m"
+    and "\<And>t a regs. Run_inv m t a regs \<Longrightarrow> determ_traces (f a)"
+  shows "determ_traces (m \<bind> f)"
+  unfolding determ_traces_def
+  using assms
+  by (auto simp: Run_inv_iff_Traces_inv elim!: bind_Traces_inv_cases final_bind_cases
+           dest!: determ_the_outcome_eq[OF assms(1), rotated] determ_the_outcome_eq[OF assms(3), rotated])
+
+lemma try_catch_eq_iff:
+  "(try_catch m h = Done a) \<longleftrightarrow> (m = Done a \<or> (\<exists>e. m = Exception e \<and> h e = Done a))"
+  "(try_catch m h = Exception e) \<longleftrightarrow> (\<exists>e'. m = Exception e' \<and> h e' = Exception e)"
+  "(try_catch m h = Fail msg) \<longleftrightarrow> (m = Fail msg \<or> (\<exists>e. m = Exception e \<and> h e = Fail msg))"
+  by (cases m; auto)+
+
+lemma try_catch_Traces_inv_cases:
+  assumes "(try_catch m h, t, mtc) \<in> Traces_inv regs" and "traces_preserve_invariant m"
+  obtains (Done) a where "Run_inv m t a regs" and "mtc = Done a"
+  | (Fail) msg where "(m, t, Fail msg) \<in> Traces_inv regs" and "mtc = Fail msg"
+  | (Ex) tm ex th where "(m, tm, Exception ex) \<in> Traces_inv regs"
+      and "(h ex, th, mtc) \<in> Traces_inv (the (updates_regs inv_regs tm regs))" and "t = tm @ th"
+  using assms
+  unfolding in_Traces_inv_iff Run_inv_def
+  by (auto elim!: try_catch_Traces_cases final_cases simp: regstate_simp try_catch_eq_iff; fastforce)
+
+lemma determ_traces_try_catchI:
+  assumes "determ_traces m" and "traces_preserve_invariant m"
+    and "\<And>e. determ_traces (h e)"
+  shows "determ_traces (try_catch m h)"
+  unfolding determ_traces_def
+  using assms determ_the_outcome_eq[OF assms(3)] determ_the_outcome_eq[OF assms(1)]
+  by (fastforce simp: Run_inv_iff_Traces_inv elim!: try_catch_Traces_inv_cases
+                dest!: determ_the_outcome_eq[OF assms(1), rotated] determ_the_outcome_eq[OF assms(3), rotated])
+
+lemma determ_traces_liftR[determ]:
+  assumes "determ_traces m" and "traces_preserve_invariant m"
+  shows "determ_traces (liftR m)"
+  using assms
+  unfolding liftR_def
+  by (auto intro!: determ_traces_try_catchI determ)
+
+lemma determ_traces_catch_early_return[determ]:
+  assumes "determ_traces m" and "traces_preserve_invariant m"
+  shows "determ_traces (catch_early_return m)"
+  using assms
+  unfolding catch_early_return_def
+  by (auto intro!: determ_traces_try_catchI determ split: sum.splits)
+
+lemma determ_traces_early_return[determ]:
+  "determ_traces (early_return a)"
+  by (auto simp: early_return_def intro: determ)
+
+lemma determ_traces_foreachM:
+  assumes "\<And>x vars. x \<in> set xs \<Longrightarrow> determ_traces (body x vars)"
+    and "\<And>x vars. x \<in> set xs \<Longrightarrow> runs_preserve_invariant (body x vars)"
+  shows "determ_traces (foreachM xs vars body)"
+  using assms
+  by (induction xs arbitrary: vars) (auto intro: determ determ_traces_bindI)
+
+lemma determ_runs_if:
+  "determ_runs (if c then m1 else m2)" if "c \<Longrightarrow> determ_runs m1" and "\<not>c \<Longrightarrow> determ_runs m2"
+  using that
+  by auto
+
+lemma determ_traces_if:
+  "determ_traces (if c then m1 else m2)" if "c \<Longrightarrow> determ_traces m1" and "\<not>c \<Longrightarrow> determ_traces m2"
+  using that
+  by auto
+
+lemma determ_traces_read_inv_reg:
+  assumes "name r \<in> inv_regs"
+    and "\<forall>regs. invariant regs \<longrightarrow> get_regval (name r) regs = Some v \<and> of_regval r v = Some (read_from r regs)"
+  shows "determ_traces (read_reg r)"
+  using assms
+  by (intro determ_tracesI[where m' = "Done (the (of_regval r v))"])
+     (auto simp: Traces_inv_def read_reg_def elim!: Read_reg_TracesE final_cases split: option.splits)
+
+lemma determ_runs_read_inv_reg:
+  "determ_runs (read_reg r)" if "name r \<in> inv_regs" and "\<And>regs. invariant regs \<Longrightarrow> get_regval (name r) regs = Some v"
+  using that
+  by (intro determ_runsI[where c = "the (of_regval r v)"])
+     (auto simp: determ_runs_def Run_inv_def elim!: Run_read_regE)
+
+lemma determ_runs_or_boolM[determ]:
+  "determ_runs (or_boolM m1 m2)" if "determ_runs m1" and "determ_runs m2" and "runs_preserve_invariant m1"
+  using that
+  unfolding or_boolM_def
+  by (auto intro!: determ_runs_bindI determ_runs_return)
+
+lemma determ_runs_assert_exp[determ]: "determ_runs (assert_exp e msg)"
+  by (intro determ_runsI) auto
+
+lemma determ_runs_case_prod[determ]:
+  "determ_runs (case x of (y, z) \<Rightarrow> f y z)" if "\<And>y z. x = (y, z) \<Longrightarrow> determ_runs (f y z)"
+  using that
+  by auto
+
+lemma determ_runs_case_option[determ]:
+  "determ_runs (case x of Some y \<Rightarrow> f y | None \<Rightarrow> g)" if "\<And>y. x = Some y \<Longrightarrow> determ_runs (f y)" and "determ_runs g"
+  using that
+  by (cases x) auto
+
+lemma determ_traces_exit[determ]: "determ_traces (exit0 u)"
+  by (intro determ_tracesI) (auto simp: exit0_def in_Traces_inv_iff)
+
+lemmas determ_runs_exit0 = determ_traces_exit[THEN determ_traces_runs, determ]
+
+end
+
 end

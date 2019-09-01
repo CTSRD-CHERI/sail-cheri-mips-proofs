@@ -4,6 +4,11 @@ open import Sail2_prompt_monad
 open import Sail2_operators
 open import Capabilities
 
+(* TODO: Maybe add a read_kind for instruction fetches, so that we can
+   distinguish loads from fetches in events and don't need to carry around the
+   is_fetch parameter below *)
+type acctype = Load | Store | Fetch
+
 type isa 'cap 'regval 'instr 'e =
   <| instr_sem : 'instr -> monad 'regval unit 'e;
      instr_fetch : monad 'regval 'instr 'e;
@@ -18,7 +23,7 @@ type isa 'cap 'regval 'instr 'e =
      exception_targets : set 'regval -> set 'cap;
      privileged_regs : (* trace 'regval -> *) set register_name;
      translation_tables : trace 'regval -> set nat;
-     translate_address : nat -> bool -> trace 'regval -> maybe nat |>
+     translate_address : nat -> acctype -> trace 'regval -> maybe nat |>
 
 let writes_mem_val_at_idx i t = Maybe.bind (index t i) writes_mem_val
 let writes_mem_cap_at_idx i t = Maybe.bind (index t i) writes_mem_cap
@@ -135,7 +140,7 @@ let load_mem_axiom ISA is_fetch t =
      -->
      (exists c' vaddr.
         cap_derivable (available_caps ISA i t) c' && is_tagged c' && not (is_sealed c') &&
-        ISA.translate_address vaddr true (take i t) = Just paddr &&
+        ISA.translate_address vaddr (if is_fetch then Fetch else Load) (take i t) = Just paddr &&
         Set.fromList (address_range vaddr sz) subset (get_mem_region c') &&
         (if is_fetch && tag = B0 then (get_perms c').permit_execute else (get_perms c').permit_load) &&
         (tag <> B0 --> (get_perms c').permit_load_capability && sz = ISA.tag_granule && address_tag_aligned ISA paddr)))
@@ -167,7 +172,7 @@ let store_mem_axiom ISA t =
      -->
      (exists c' vaddr.
         cap_derivable (available_caps ISA i t) c' && is_tagged c' && not (is_sealed c') &&
-        ISA.translate_address vaddr false (take i t) = Just paddr &&
+        ISA.translate_address vaddr Store (take i t) = Just paddr &&
         Set.fromList (address_range vaddr sz) subset (get_mem_region c') &&
         (if (mem_val_is_cap ISA v tag && tag = B1)
          then (get_perms c').permit_store_capability
