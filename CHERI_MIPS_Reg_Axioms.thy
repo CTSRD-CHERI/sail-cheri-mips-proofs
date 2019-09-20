@@ -2898,7 +2898,7 @@ lemma traces_enabled_instr_sem[traces_enabledI]:
   shows "traces_enabled (instr_sem ISA instr) s regs"
   by (cases instr rule: execute.cases; simp; use nothing in \<open>traces_enabledI assms: assms\<close>)
 
-lemma hasTrace_reg_axioms:
+lemma hasTrace_instr_reg_axioms:
   assumes "hasTrace t (instr_sem ISA instr)"
     and "reads_regs_from inv_regs t regs" and "invariant regs"
     and "hasException t (instr_sem ISA instr) \<or> hasFailure t (instr_sem ISA instr) \<longrightarrow> ex_traces"
@@ -2907,8 +2907,77 @@ lemma hasTrace_reg_axioms:
     and "store_cap_mem_axiom CC ISA t"
     and "read_reg_axiom CC ISA ex_traces t"
   using assms
-  by (intro traces_enabled_store_cap_reg_read_reg_axioms traces_enabled_instr_sem; auto)+
+  by (intro traces_enabled_reg_axioms[where m = "instr_sem ISA instr" and regs = regs] traces_enabled_instr_sem; auto)+
+
+lemma preserves_invariant_write_reg_PCC[preserves_invariantI]:
+  assumes "Capability_tag c" and "\<not>Capability_sealed c"
+  shows "traces_preserve_invariant (write_reg PCC_ref c)"
+  using assms
+  unfolding traces_preserve_invariant_def trace_preserves_invariant_def
+  by (auto simp: write_reg_def register_defs elim: Write_reg_TracesE)
 
 end
+
+(*locale CHERI_MIPS_Reg_Fetch_Automaton = CHERI_MIPS_ISA
+begin
+
+sublocale Write_Cap_Inv_Automaton CC ISA False False get_regval set_regval "\<lambda>_. True" "{}" ..
+
+sublocale CHERI_MIPS_Axiom_Inv_Automaton where enabled = enabled and invariant = "\<lambda>_. True" and inv_regs = "{}" and ex_traces = False ..
+
+lemma traces_preserve_invariant_trivial[preserves_invariantI]:
+  "traces_preserve_invariant m"
+  by (auto simp: traces_preserve_invariant_def trace_preserves_invariant_def)
+
+lemmas non_cap_exp_traces_enabled[traces_enabledI] = non_cap_expI[THEN non_cap_exp_traces_enabledI]
+
+lemma
+  "traces_enabled (SignalException arg0) s regs"
+  unfolding traces_enabled_def finished_def isException_def
+  by auto
+
+lemma
+  shows "traces_enabled (cp2_next_pc u) s regs"
+  unfolding cp2_next_pc_def
+  apply (traces_enabledI_with \<open>-\<close>)
+  oops
+
+lemma
+  shows "traces_enabled (TLBTranslate2 arg0 arg1) s regs"
+  unfolding TLBTranslate2_def
+  apply (traces_enabledI_with \<open>-\<close>)
+  oops
+
+lemma
+  shows "traces_enabled (TLBTranslate arg0 arg1) s regs"
+  unfolding TLBTranslate_def TLBTranslateC_def
+  apply (traces_enabledI_with \<open>-\<close>)
+  oops
+
+lemma
+  shows "traces_enabled (TranslatePC vaddr) s regs"
+  unfolding TranslatePC_def
+  apply (traces_enabledI_with \<open>-\<close>)
+  oops
+
+
+lemma
+  shows "traces_enabled (fetch u) s regs"
+  unfolding fetch_def
+  apply (traces_enabledI_with \<open>-\<close>)
+  oops
+
+(*lemma
+  "traces_preserve_invariant (cp2_next_pc u)"
+  unfolding cp2_next_pc_def
+  apply (preserves_invariantI)
+
+lemma
+  shows "traces_enabled (fetch u) s regs"
+  unfolding fetch_def
+  apply (traces_enabledI)
+  oops*)
+
+end*)
 
 end

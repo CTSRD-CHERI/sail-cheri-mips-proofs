@@ -42,7 +42,7 @@ lemma preserves_invariant_write_non_inv_regs[preserves_invariantI]:
   "\<And>v. traces_preserve_invariant (write_reg NextPC_ref v)"
   "\<And>v. traces_preserve_invariant (write_reg NextPCC_ref v)"
   "\<And>v. traces_preserve_invariant (write_reg PC_ref v)"
-  "\<And>v. traces_preserve_invariant (write_reg PCC_ref v)"
+  (*"\<And>v. traces_preserve_invariant (write_reg PCC_ref v)"*)
   "\<And>v. traces_preserve_invariant (write_reg TLBEntryLo0_ref v)"
   "\<And>v. traces_preserve_invariant (write_reg TLBEntryLo1_ref v)"
   "\<And>v. traces_preserve_invariant (write_reg TLBIndex_ref v)"
@@ -1195,6 +1195,11 @@ lemma preserves_invariant_execute[preserves_invariantI]:
   shows "runs_preserve_invariant (execute instr)"
   by (cases instr rule: execute.cases; simp; preserves_invariantI)
 
+lemma preserves_invariant_write_reg_PCC[preserves_invariantI]:
+  "traces_preserve_invariant (write_reg PCC_ref v)"
+  by (auto simp: write_reg_def traces_preserve_invariant_def elim!: Write_reg_TracesE)
+     (auto simp: trace_preserves_invariant_def trans_inv_def register_defs split: option.splits)
+
 lemma preserves_invariant_cp2_next_pc[preserves_invariantI]:
   shows "runs_preserve_invariant (cp2_next_pc u)"
   unfolding cp2_next_pc_def
@@ -1231,7 +1236,6 @@ lemma mem_val_is_local_cap_Capability_global[simp]:
   by (cases tag) (auto simp: mem_val_is_local_cap_def bind_eq_Some_conv)
 
 declare cap_size_def[simp]
-lemma [simp]: "tag_granule ISA = 32" by (auto simp: ISA_def)
 
 lemma access_enabled_Store[derivable_capsE]:
   assumes "Capability_permit_store c"
@@ -1865,14 +1869,15 @@ lemma traces_enabled_instr_sem[traces_enabledI]:
   shows "traces_enabled (instr_sem ISA instr) s regs"
   by (cases instr rule: execute.cases; simp; use nothing in \<open>traces_enabledI assms: assms\<close>)
 
-lemma hasTrace_mem_axioms:
+lemma hasTrace_instr_mem_axioms:
   assumes "hasTrace t (instr_sem ISA instr)"
-    and "reads_regs_from trans_regs t trans_regstate"
+    and "reads_regs_from trans_regs t regs" and "trans_inv regs"
+    and "instr_raises_ex ISA instr t \<longrightarrow> ex_traces"
   shows "store_mem_axiom CC ISA t"
     and "store_tag_axiom CC ISA t"
     and "load_mem_axiom CC ISA False t"
   using assms
-  by (intro traces_enabled_mem_axioms[where instr = instr and regs = trans_regstate] traces_enabled_instr_sem;
+  by (intro traces_enabled_mem_axioms[where m = "instr_sem ISA instr" and regs = regs] traces_enabled_instr_sem;
       auto)+
 
 end
@@ -1912,12 +1917,12 @@ lemma traces_enabled_MEMr_wrapper[traces_enabledI]:
   unfolding MEMr_wrapper_def MEMr_def read_mem_def
   by (traces_enabledI assms: assms)
 
-lemma Run_inv_traces_enabled_trace_enabled:
+(*lemma Run_inv_traces_enabled_trace_enabled:
   assumes "Run_inv m t a regs" and "traces_enabled m s regs"
   shows "trace_enabled s t"
   using assms
   unfolding Run_inv_def traces_enabled_def
-  by blast
+  by blast*)
 
 lemma [simp]: "translation_tables ISA t = {}"
   by (auto simp: ISA_def)
@@ -1951,35 +1956,649 @@ lemma Run_inv_read_regE:
 lemma [simp]: "Run_inv (SignalExceptionBadAddr ex badAddr) t a regs \<longleftrightarrow> False"
   by (auto simp: Run_inv_def)
 
-lemma
-  assumes "Run_inv (TranslatePC vaddr) t paddr regs" and "reads_regs_from {''PCC''} t pcc_state"
-    and "regstate.PCC pcc_state \<in> derivable_caps s"
+lemma [simp]: "''PCC'' \<in> trans_regs"
+  by (auto simp: trans_regs_def)
+
+lemma runs_no_reg_writes_to_incrementCP0Count[runs_no_reg_writes_toI, simp]:
+  assumes "{''TLBRandom'', ''CP0Count'', ''CP0Cause''} \<inter> Rs = {}"
+  shows "runs_no_reg_writes_to Rs (incrementCP0Count u)"
+  using assms
+  unfolding incrementCP0Count_def Let_def bind_assoc
+  by (no_reg_writes_toI simp: register_defs)
+
+lemma [simp]: "runs_no_reg_writes_to trans_regs (incrementCP0Count u)"
+  by (auto simp: trans_regs_def)
+find_theorems updates_regs no_reg_writes_to
+
+lemma Run_inv_runs_no_reg_writes_to_updates_regs_inv[simp]:
+  assumes "Run_inv m t a regs"
+    and "runs_no_reg_writes_to trans_regs m"
+  shows "updates_regs trans_regs t regs = Some regs"
+  using assms
+proof -
+  have "\<forall>r \<in> trans_regs. \<forall>v. E_write_reg r v \<notin> set t"
+    using assms
+    by (auto simp: runs_no_reg_writes_to_def Run_inv_def)
+  then show "updates_regs trans_regs t regs = Some regs"
+    by (induction trans_regs t regs rule: updates_regs.induct) auto
+qed
+
+lemma Run_inv_read_reg_PCC[simp]:
+  assumes "Run_inv (read_reg PCC_ref) t c regs"
+  shows "regstate.PCC regs = c"
+  using assms
+  by (auto simp: Run_inv_def register_defs regval_of_Capability_def elim!: Run_read_regE)
+
+lemma foo:
+  assumes "\<not> getCapTop c < getCapBase c + uint vaddr + 4" and "getCapTop c \<le> pow2 64"
+  shows "unat (to_bits 64 (getCapBase c + uint vaddr) :: 64 word) = nat (getCapBase c + uint vaddr) \<and> nat (getCapBase c) \<le> nat (getCapBase c + uint vaddr) \<and> nat (getCapBase c + uint vaddr) + 4 = nat (getCapBase c + uint vaddr + 4)"
+  using assms
+  by (auto simp: nat_add_distrib getCapBase_def)
+
+lemma Run_inv_TranslatePC_access_enabled_Fetch:
+  assumes "Run_inv (TranslatePC vaddr) t paddr regs" (*and "reads_regs_from {''PCC''} t pcc_state"*)
+    and "regstate.PCC regs \<in> derivable_caps s"
   shows "access_enabled (run s t) Fetch (unat paddr) (nat 4) bytes B0"
+proof -
+  { fix c
+    assume "\<not> getCapTop c < getCapBase c + uint vaddr + 4" and "getCapTop c \<le> pow2 64"
+    then have "unat (to_bits 64 (getCapBase c + uint vaddr) :: 64 word) = nat (getCapBase c + uint vaddr) \<and> nat (getCapBase c) \<le> nat (getCapBase c + uint vaddr) \<and> nat (getCapBase c + uint vaddr) + 4 = nat (getCapBase c + uint vaddr + 4)"
+      by (auto simp: nat_add_distrib getCapBase_def)
+  }
+  from this[of "regstate.PCC regs"]
+  show ?thesis
+    using assms
+    unfolding TranslatePC_def bind_assoc Let_def
+    by (intro access_enabled_FetchI[where c = "regstate.PCC regs" and vaddr = "unat (to_bits 64 (getCapBase (regstate.PCC regs) + uint vaddr) :: 64 word)"])
+       (auto elim!: Run_inv_bindE Run_inv_ifE intro: preserves_invariantI traces_runs_preserve_invariantI derivable_caps_run_imp simp add: getCapBounds_def simp del: unat_to_bits dest!: TLBTranslate_Instruction_translate_address_eq[where t' = "[] :: register_value trace"])
+qed
+
+lemma [simp]:
+  "name UART_WRITTEN_ref \<notin> trans_regs"
+  "name InstCount_ref  \<notin> trans_regs"
+  "name NextPCC_ref  \<notin> trans_regs"
+  by (auto simp: trans_regs_def register_defs)
+
+lemma Run_write_regE:
+  assumes "Run (write_reg r v) t a"
+  obtains "t = [E_write_reg (name r) (regval_of r v)]"
   using assms
-  unfolding TranslatePC_def bind_assoc Let_def
-  (* apply (auto elim!: Run_inv_bindE Run_inv_ifE intro: preserves_invariantI traces_runs_preserve_invariantI) *)
-  apply (intro access_enabled_FetchI[where c = "regstate.PCC pcc_state" and vaddr = "unat (to_bits 64 (getCapBase (regstate.PCC pcc_state) + uint vaddr) :: 64 word)"])
-  apply (auto intro: derivable_caps_run_imp simp del: unat_to_bits)
-  apply (auto elim!: Run_inv_bindE Run_inv_ifE Run_inv_read_regE intro: preserves_invariantI traces_runs_preserve_invariantI derivable_caps_run_imp simp: regstate_simp register_defs regval_of_Capability_def)[]
-  apply (auto elim!: Run_inv_bindE Run_inv_ifE Run_inv_read_regE intro: preserves_invariantI traces_runs_preserve_invariantI derivable_caps_run_imp simp: regstate_simp register_defs regval_of_Capability_def)[]
-  apply (auto elim!: Run_inv_bindE Run_inv_ifE Run_inv_read_regE intro: preserves_invariantI traces_runs_preserve_invariantI derivable_caps_run_imp simp: regstate_simp register_defs regval_of_Capability_def getCapBounds_def simp del: unat_to_bits)[]
-  apply (auto elim!: Run_inv_bindE Run_inv_ifE Run_inv_read_regE intro: preserves_invariantI traces_runs_preserve_invariantI derivable_caps_run_imp simp: regstate_simp register_defs regval_of_Capability_def getCapBounds_def)[]
-  sorry
+  by (auto simp: write_reg_def elim!: Write_reg_TracesE)
+
+lemma Run_inv_write_reg_PCC_updates_regs[simp]:
+  assumes "Run_inv (write_reg PCC_ref c) t a regs"
+  shows "updates_regs trans_regs t regs' = Some (regs'\<lparr>regstate.PCC := c\<rparr>)"
+  using assms
+  unfolding Run_inv_def
+  by (auto simp: register_defs elim: Run_write_regE)
+
+lemma Run_inv_read_reg_NextPCC_derivable_caps[derivable_capsE]:
+  assumes "Run_inv (read_reg NextPCC_ref) t c regs"
+    and "{''NextPCC''} \<subseteq> accessible_regs s"
+  shows "c \<in> derivable_caps (run s t)"
+  using assms
+  by (auto simp: step_defs register_defs derivable_caps_def intro: derivable.Copy elim!: Run_inv_read_regE)
+
+lemma Run_inv_cp2_next_pc_PCC_derivable:
+  assumes "Run_inv (cp2_next_pc ()) t a regs"
+    and "{''NextPCC''} \<subseteq> accessible_regs s"
+  shows "regstate.PCC (the (updates_regs trans_regs t regs)) \<in> derivable_caps (run s t)"
+  using assms(1)
+  unfolding cp2_next_pc_def
+  by (auto elim!: Run_inv_bindE Run_inv_ifE intro: preserves_invariantI traces_runs_preserve_invariantI simp: regstate_simp)
+     (derivable_capsI assms: assms(2))+
+
+lemma traces_enabled_fetch[traces_enabledI]:
+  assumes "{''NextPCC''} \<subseteq> accessible_regs s"
+  shows  "traces_enabled (fetch u) s regs"
+  unfolding fetch_def bind_assoc
+  by (traces_enabledI elim: Run_inv_TranslatePC_access_enabled_Fetch Run_inv_cp2_next_pc_PCC_derivable assms: assms)
+
+lemma traces_enabled_instr_fetch[traces_enabledI]:
+  assumes "{''NextPCC''} \<subseteq> accessible_regs s"
+  shows "traces_enabled (instr_fetch ISA) s regs"
+  unfolding ISA_simps
+  by (traces_enabledI assms: assms)
+
+lemma hasTrace_fetch_mem_axioms:
+  assumes "hasTrace t (instr_fetch ISA)"
+    and "reads_regs_from trans_regs t regs" and "trans_inv regs"
+    and "fetch_raises_ex ISA t \<longrightarrow> ex_traces"
+  shows "store_mem_axiom CC ISA t"
+    and "store_tag_axiom CC ISA t"
+    and "load_mem_axiom CC ISA True t"
+  using assms
+  by (intro traces_enabled_mem_axioms[where m = "instr_fetch ISA" and regs = regs] traces_enabled_instr_fetch; auto)+
+
+(* sublocale Reg_Automaton: CHERI_MIPS_Reg_Fetch_Automaton trans_regstate ex_traces .. *)
+
+end
+
+locale CHERI_MIPS_Reg_Fetch_Automaton = CHERI_MIPS_Fixed_Trans +
+  fixes ex_traces :: bool
+begin
+
+sublocale Reg_Automaton?: Write_Cap_Inv_Automaton CC ISA ex_traces False get_regval set_regval trans_inv trans_regs ..
+
+sublocale CHERI_MIPS_Axiom_Inv_Automaton where enabled = enabled and invariant = trans_inv and inv_regs = trans_regs and translate_address = translate_address ..
+
+sublocale Mem_Automaton: CHERI_MIPS_Mem_Fetch_Automaton trans_regstate ex_traces ..
+
+lemmas non_cap_exp_traces_enabled[traces_enabledI] = non_cap_expI[THEN non_cap_exp_traces_enabledI]
+
+definition "PCC_accessible s regs \<equiv> ''PCC'' \<in> accessible_regs s \<or> regstate.PCC regs \<in> derivable_caps s"
 
 lemma
-  assumes "access_enabled s acctype addr sz bytes tag"
-  shows "access_enabled (run s t) acctype addr sz bytes tag"
-  using assms derivable_caps_run_imp[unfolded derivable_caps_def]
-  by (cases acctype; fastforce simp: access_enabled_defs)
+  assumes "Run_inv (read_reg PCC_ref) t c regs" and "PCC_accessible s regs"
+  shows "c \<in> derivable_caps (run s t)"
+  using assms derivable_mono[where C = C and C' = "C \<union> C'" for C C']
+  unfolding Run_inv_def PCC_accessible_def derivable_caps_def
+  by (fastforce simp: register_defs regval_of_Capability_def elim!: Run_read_regE intro: derivable.Copy)
 
-lemma
-  assumes "Run_inv (fetch u) t a trans_regstate" and "reads_regs_from {''PCC''} t pcc_state"
-  shows "trace_enabled initial t"
+lemma traces_enabled_write_cap_regs[traces_enabledI]:
+  assumes "c \<in> derivable_caps s"
+  shows "traces_enabled (write_reg C01_ref c) s regs"
+    and "traces_enabled (write_reg C02_ref c) s regs"
+    and "traces_enabled (write_reg C03_ref c) s regs"
+    and "traces_enabled (write_reg C04_ref c) s regs"
+    and "traces_enabled (write_reg C05_ref c) s regs"
+    and "traces_enabled (write_reg C06_ref c) s regs"
+    and "traces_enabled (write_reg C07_ref c) s regs"
+    and "traces_enabled (write_reg C08_ref c) s regs"
+    and "traces_enabled (write_reg C09_ref c) s regs"
+    and "traces_enabled (write_reg C10_ref c) s regs"
+    and "traces_enabled (write_reg C11_ref c) s regs"
+    and "traces_enabled (write_reg C12_ref c) s regs"
+    and "traces_enabled (write_reg C13_ref c) s regs"
+    and "traces_enabled (write_reg C14_ref c) s regs"
+    and "traces_enabled (write_reg C15_ref c) s regs"
+    and "traces_enabled (write_reg C16_ref c) s regs"
+    and "traces_enabled (write_reg C17_ref c) s regs"
+    and "traces_enabled (write_reg C18_ref c) s regs"
+    and "traces_enabled (write_reg C19_ref c) s regs"
+    and "traces_enabled (write_reg C20_ref c) s regs"
+    and "traces_enabled (write_reg C21_ref c) s regs"
+    and "traces_enabled (write_reg C22_ref c) s regs"
+    and "traces_enabled (write_reg C23_ref c) s regs"
+    and "traces_enabled (write_reg C24_ref c) s regs"
+    and "traces_enabled (write_reg C25_ref c) s regs"
+    and "traces_enabled (write_reg C26_ref c) s regs"
+    and "traces_enabled (write_reg C27_ref c) s regs"
+    and "traces_enabled (write_reg C28_ref c) s regs"
+    and "traces_enabled (write_reg C29_ref c) s regs"
+    and "traces_enabled (write_reg C30_ref c) s regs"
+    and "traces_enabled (write_reg C31_ref c) s regs"
+    and "traces_enabled (write_reg CPLR_ref c) s regs"
+    and "traces_enabled (write_reg CULR_ref c) s regs"
+    and "traces_enabled (write_reg DDC_ref c) s regs"
+    and "traces_enabled (write_reg DelayedPCC_ref c) s regs"
+    and "traces_enabled (write_reg EPCC_ref c) s regs"
+    and "traces_enabled (write_reg ErrorEPCC_ref c) s regs"
+    and "traces_enabled (write_reg KCC_ref c) s regs"
+    and "traces_enabled (write_reg KDC_ref c) s regs"
+    and "traces_enabled (write_reg KR1C_ref c) s regs"
+    and "traces_enabled (write_reg KR2C_ref c) s regs"
+    and "\<And>c. traces_enabled (write_reg CapCause_ref c) s regs"
+    and "traces_enabled (write_reg NextPCC_ref c) s regs"
+    and "traces_enabled (write_reg PCC_ref c) s regs"
   using assms
-  unfolding fetch_def bind_assoc Let_def
-  apply (elim Run_inv_bind_trace_enabled Run_inv_traces_enabled_trace_enabled)
-  apply (intro preserves_invariantI conjI impI allI traces_runs_preserve_invariantI traces_enabledI)+
-  oops
+  by (intro traces_enabled_write_reg; auto simp: register_defs derivable_caps_def)+
+
+lemma traces_enabled_read_cap_regs[traces_enabledI]:
+  "traces_enabled (read_reg C01_ref) s regs"
+  "traces_enabled (read_reg C02_ref) s regs"
+  "traces_enabled (read_reg C03_ref) s regs"
+  "traces_enabled (read_reg C04_ref) s regs"
+  "traces_enabled (read_reg C05_ref) s regs"
+  "traces_enabled (read_reg C06_ref) s regs"
+  "traces_enabled (read_reg C07_ref) s regs"
+  "traces_enabled (read_reg C08_ref) s regs"
+  "traces_enabled (read_reg C09_ref) s regs"
+  "traces_enabled (read_reg C10_ref) s regs"
+  "traces_enabled (read_reg C11_ref) s regs"
+  "traces_enabled (read_reg C12_ref) s regs"
+  "traces_enabled (read_reg C13_ref) s regs"
+  "traces_enabled (read_reg C14_ref) s regs"
+  "traces_enabled (read_reg C15_ref) s regs"
+  "traces_enabled (read_reg C16_ref) s regs"
+  "traces_enabled (read_reg C17_ref) s regs"
+  "traces_enabled (read_reg C18_ref) s regs"
+  "traces_enabled (read_reg C19_ref) s regs"
+  "traces_enabled (read_reg C20_ref) s regs"
+  "traces_enabled (read_reg C21_ref) s regs"
+  "traces_enabled (read_reg C22_ref) s regs"
+  "traces_enabled (read_reg C23_ref) s regs"
+  "traces_enabled (read_reg C24_ref) s regs"
+  "traces_enabled (read_reg C25_ref) s regs"
+  "traces_enabled (read_reg C26_ref) s regs"
+  "traces_enabled (read_reg C27_ref) s regs"
+  "traces_enabled (read_reg C28_ref) s regs"
+  "traces_enabled (read_reg C29_ref) s regs"
+  "traces_enabled (read_reg C30_ref) s regs"
+  "traces_enabled (read_reg C31_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg CPLR_ref) s regs"
+  "traces_enabled (read_reg CULR_ref) s regs"
+  "traces_enabled (read_reg DDC_ref) s regs"
+  "traces_enabled (read_reg DelayedPCC_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg EPCC_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg ErrorEPCC_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg KCC_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg KDC_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg KR1C_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg KR2C_ref) s regs"
+  "system_reg_access s \<or> ex_traces \<Longrightarrow> traces_enabled (read_reg CapCause_ref) s regs"
+  "traces_enabled (read_reg NextPCC_ref) s regs"
+  "traces_enabled (read_reg PCC_ref) s regs"
+  by (intro traces_enabled_read_reg; auto simp: register_defs)+
+
+lemma read_cap_regs_derivable[derivable_capsE]:
+  "\<And>t c regs s. Run_inv (read_reg C01_ref) t c regs \<Longrightarrow> {''C01''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C02_ref) t c regs \<Longrightarrow> {''C02''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C03_ref) t c regs \<Longrightarrow> {''C03''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C04_ref) t c regs \<Longrightarrow> {''C04''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C05_ref) t c regs \<Longrightarrow> {''C05''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C06_ref) t c regs \<Longrightarrow> {''C06''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C07_ref) t c regs \<Longrightarrow> {''C07''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C08_ref) t c regs \<Longrightarrow> {''C08''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C09_ref) t c regs \<Longrightarrow> {''C09''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C10_ref) t c regs \<Longrightarrow> {''C10''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C11_ref) t c regs \<Longrightarrow> {''C11''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C12_ref) t c regs \<Longrightarrow> {''C12''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C13_ref) t c regs \<Longrightarrow> {''C13''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C14_ref) t c regs \<Longrightarrow> {''C14''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C15_ref) t c regs \<Longrightarrow> {''C15''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C16_ref) t c regs \<Longrightarrow> {''C16''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C17_ref) t c regs \<Longrightarrow> {''C17''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C18_ref) t c regs \<Longrightarrow> {''C18''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C19_ref) t c regs \<Longrightarrow> {''C19''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C20_ref) t c regs \<Longrightarrow> {''C20''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C21_ref) t c regs \<Longrightarrow> {''C21''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C22_ref) t c regs \<Longrightarrow> {''C22''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C23_ref) t c regs \<Longrightarrow> {''C23''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C24_ref) t c regs \<Longrightarrow> {''C24''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C25_ref) t c regs \<Longrightarrow> {''C25''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C26_ref) t c regs \<Longrightarrow> {''C26''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C27_ref) t c regs \<Longrightarrow> {''C27''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C28_ref) t c regs \<Longrightarrow> {''C28''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C29_ref) t c regs \<Longrightarrow> {''C29''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C30_ref) t c regs \<Longrightarrow> {''C30''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg C31_ref) t c regs \<Longrightarrow> {''C31''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg CPLR_ref) t c regs \<Longrightarrow> {''CPLR''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg CULR_ref) t c regs \<Longrightarrow> {''CULR''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg DDC_ref) t c regs \<Longrightarrow> {''DDC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg DelayedPCC_ref) t c regs \<Longrightarrow> {''DelayedPCC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg EPCC_ref) t c regs \<Longrightarrow> {''EPCC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg ErrorEPCC_ref) t c regs \<Longrightarrow> {''ErrorEPCC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg KCC_ref) t c regs \<Longrightarrow> {''KCC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg KDC_ref) t c regs \<Longrightarrow> {''KDC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg KR1C_ref) t c regs \<Longrightarrow> {''KR1C''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg KR2C_ref) t c regs \<Longrightarrow> {''KR2C''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg NextPCC_ref) t c regs \<Longrightarrow> {''NextPCC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  "\<And>t c regs s. Run_inv (read_reg PCC_ref) t c regs \<Longrightarrow> {''PCC''} \<subseteq> accessible_regs s \<Longrightarrow> c \<in> derivable_caps (run s t)"
+  unfolding C01_ref_def C02_ref_def C03_ref_def C04_ref_def C05_ref_def
+     C06_ref_def C07_ref_def C08_ref_def C09_ref_def C10_ref_def
+     C11_ref_def C12_ref_def C13_ref_def C14_ref_def C15_ref_def
+     C16_ref_def C17_ref_def C18_ref_def C19_ref_def C20_ref_def
+     C21_ref_def C22_ref_def C23_ref_def C24_ref_def C25_ref_def
+     C26_ref_def C27_ref_def C28_ref_def C29_ref_def C30_ref_def
+     C31_ref_def CPLR_ref_def CULR_ref_def DDC_ref_def DelayedPCC_ref_def
+     EPCC_ref_def ErrorEPCC_ref_def KCC_ref_def KDC_ref_def KR1C_ref_def
+     KR2C_ref_def NextPCC_ref_def PCC_ref_def Run_inv_def derivable_caps_def
+  by (auto elim!: Run_read_regE intro!: derivable.Copy)
+
+lemma traces_enabled_cp2_next_pc[traces_enabledI]:
+  assumes "{''DelayedPCC'', ''NextPCC''} \<subseteq> accessible_regs s"
+  shows "traces_enabled (cp2_next_pc u) s regs"
+  unfolding cp2_next_pc_def bind_assoc
+  by (traces_enabledI assms: assms simp: register_defs)
+
+lemma traces_enabled_set_next_pcc_ex:
+  assumes arg0: "arg0 \<in> exception_targets ISA (read_from_KCC s)" and ex: "ex_traces"
+  shows "traces_enabled (set_next_pcc arg0) s regs"
+  unfolding set_next_pcc_def bind_assoc
+  by (traces_enabledI intro: traces_enabled_write_reg assms exception_targets_run_imp simp: register_defs)
+
+lemma read_reg_PCC_from_iff:
+  assumes "reads_regs_from trans_regs t regs"
+  defines "pcc \<equiv> regstate.PCC regs"
+    and "e \<equiv> E_read_reg ''PCC'' (Regval_Capability (regstate.PCC regs))"
+  shows "Run (read_reg PCC_ref) t c \<longleftrightarrow> (c = pcc \<and> t = [e])"
+  using assms
+  by (auto simp: read_reg_def register_defs regval_of_Capability_def elim!: Read_reg_TracesE)
+
+lemma read_reg_PCC_from_bind_iff:
+  assumes "reads_regs_from trans_regs t regs"
+  defines "pcc \<equiv> regstate.PCC regs"
+    and "e \<equiv> E_read_reg ''PCC'' (Regval_Capability (regstate.PCC regs))"
+  shows "Run (read_reg PCC_ref \<bind> f) t a \<longleftrightarrow> (\<exists>tf. t = e # tf \<and> Run (f pcc) tf a)"
+  using assms
+  by (auto elim!: Run_bindE simp: read_reg_PCC_from_iff regstate_simp
+           intro!: Traces_bindI[of "read_reg PCC_ref" "[e]", unfolded e_def, simplified])
+
+lemmas read_reg_PCC_from_iffs = read_reg_PCC_from_iff read_reg_PCC_from_bind_iff
+
+lemma Run_read_accessible_PCC_derivable:
+  assumes "Run (read_reg PCC_ref) t c" and "reads_regs_from trans_regs t regs" and "PCC_accessible s regs"
+  shows "c \<in> derivable_caps (run s t)"
+  using assms derivable_mono[OF Un_upper1, THEN in_mono]
+  by (auto simp: register_defs regval_of_Capability_def derivable_caps_def PCC_accessible_def
+           elim!: Run_read_regE intro: derivable.Copy)
+
+lemma Run_write_derivable_PCC_accessible:
+  assumes "Run (write_reg PCC_ref c) t a" and "reads_regs_from Rs t regs" and "''PCC'' \<in> Rs"
+    and "c \<in> derivable_caps s"
+  shows "PCC_accessible (run s t) (the (updates_regs Rs t regs))"
+  using assms
+  by (auto simp: PCC_accessible_def register_defs derivable_caps_def elim!: Mem_Automaton.Run_write_regE) 
+
+lemma Run_PCC_accessible_run:
+  assumes "Run m t a" and "runs_no_reg_writes_to {''PCC''} m" and "PCC_accessible s regs"
+  shows "PCC_accessible (run s t) regs"
+  using assms derivable_caps_run_mono[of s t]
+  by (auto simp: PCC_accessible_def accessible_regs_def Run_runs_no_reg_writes_written_regs_eq)
+
+lemmas Run_inv_PCC_accessible_run = Run_inv_RunI[THEN Run_PCC_accessible_run]
+
+lemma Run_runs_no_reg_writes_to_updates_regs_inv[simp]:
+  assumes "Run m t a" and "reads_regs_from Rs t regs" and "runs_no_reg_writes_to Rs m"
+  shows "updates_regs Rs t regs = Some regs"
+proof -
+  have "\<forall>r \<in> Rs. \<forall>v. E_write_reg r v \<notin> set t"
+    using assms
+    by (auto simp: runs_no_reg_writes_to_def Run_inv_def)
+  then show "updates_regs Rs t regs = Some regs"
+    by (induction Rs t regs rule: updates_regs.induct) auto
+qed
+
+lemma Run_runs_no_reg_writes_to_get_regval_eq[simp]:
+  assumes "Run m t a" and "reads_regs_from Rs t regs" and "runs_no_reg_writes_to {r} m"
+  shows "get_regval r (the (updates_regs Rs t regs)) = get_regval r regs"
+proof -
+  have "\<forall>v. E_write_reg r v \<notin> set t"
+    using assms
+    by (auto simp: runs_no_reg_writes_to_def Run_inv_def)
+  then show ?thesis
+    using assms(2)
+    by (induction Rs t regs rule: updates_regs.induct)
+       (auto split: Option.bind_splits if_splits simp: get_ignore_set_regval)
+qed
+
+lemma Run_PCC_accessible_update:
+  assumes "Run m t a" and "reads_regs_from Rs t regs" and "runs_no_reg_writes_to {''PCC''} m"
+    and "PCC_accessible s regs"
+  shows "PCC_accessible s (the (updates_regs Rs t regs))"
+proof -
+  have "get_regval ''PCC'' (the (updates_regs Rs t regs)) = get_regval ''PCC'' regs"
+    using assms
+    by auto
+  then show ?thesis
+    using \<open>PCC_accessible s regs\<close>
+    by (auto simp: PCC_accessible_def register_defs regval_of_Capability_def)
+qed
+
+lemma Run_inv_PCC_accessible_update:
+  assumes "Run_inv m t a regs" and "runs_no_reg_writes_to {''PCC''} m"
+    and "PCC_accessible s regs"
+  shows "PCC_accessible s (the (updates_regs trans_regs t regs))"
+  using assms
+  by (intro Run_PCC_accessible_update) (auto simp: Run_inv_def)
+
+lemma Run_PCC_accessible_run_update:
+  assumes "Run m t a" and "reads_regs_from Rs t regs" and "runs_no_reg_writes_to {''PCC''} m"
+    and "PCC_accessible s regs"
+  shows "PCC_accessible (run s t) (the (updates_regs Rs t regs))"
+  using assms
+  by (blast intro: Run_PCC_accessible_run Run_PCC_accessible_update)
+
+lemma Run_inv_PCC_accessible_run_update:
+  assumes "Run_inv m t a regs" and "runs_no_reg_writes_to {''PCC''} m"
+    and "PCC_accessible s regs"
+  shows "PCC_accessible (run s t) (the (updates_regs trans_regs t regs))"
+  using assms
+  by (blast intro: Run_inv_PCC_accessible_update Run_inv_PCC_accessible_run)
+
+lemmas Run_PCC_accessibleE[derivable_capsE] =
+  Run_PCC_accessible_run_update Run_PCC_accessible_update Run_PCC_accessible_run
+  Run_inv_PCC_accessible_run_update Run_inv_PCC_accessible_update Run_inv_PCC_accessible_run
+
+lemma (in Register_State) reads_regs_bind_updates_regs_the[simp]:
+  assumes "reads_regs_from R t s"
+  shows "Option.bind (updates_regs R t s) f = f (the (updates_regs R t s))"
+  using assms
+  by (elim reads_regs_from_updates_regs_Some) auto
+
+find_theorems NextPCC_ref derivable_caps
+
+lemma Run_inv_cp2_next_pc_PCC_accessible:
+  assumes "Run_inv (cp2_next_pc u) t a regs" and "{''NextPCC''} \<subseteq> accessible_regs s"
+  shows "PCC_accessible (run s t) (the (updates_regs trans_regs t regs))"
+proof -
+  have *: "PCC_accessible s (regs\<lparr>regstate.PCC := c\<rparr>)" if "c \<in> derivable_caps s" for s c and regs :: regstate
+    using that
+    by (auto simp: PCC_accessible_def)
+  show ?thesis
+    using assms
+    unfolding cp2_next_pc_def bind_assoc
+    by (auto elim!: Run_inv_bindE Run_inv_ifE intro: preserves_invariantI traces_runs_preserve_invariantI intro!: * simp: regstate_simp)
+       (derivable_capsI)+
+qed
+
+lemma SignalException_trace_enabled:
+  assumes "(SignalException arg0, t, m') \<in> Traces" and "reads_regs_from trans_regs t regs"
+    and "PCC_accessible s regs" and ex: "ex_traces"
+  shows "trace_enabled s t"
+proof -
+  note [trace_elim] = non_cap_expI[THEN non_cap_exp_trace_enabledI]
+  have [trace_elim]: "(read_reg PCC_ref, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t and m' :: "Capability M"
+    by (elim read_reg_trace_enabled; auto simp: register_defs)
+  have [trace_elim]: "(read_reg KCC_ref, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t and m' :: "Capability M"
+    by (elim read_reg_trace_enabled; auto simp: register_defs intro: ex)
+  have [trace_elim]: "(write_reg EPCC_ref c, t, m') \<in> Traces \<Longrightarrow> c \<in> derivable_caps s \<Longrightarrow> trace_enabled s t" for s t c and m' :: "unit M"
+    by (elim write_reg_trace_enabled) (auto simp: derivable_caps_def register_defs)
+  have [trace_elim]: "(set_next_pcc c, t, m') \<in> Traces \<Longrightarrow> c \<in> exception_targets ISA (read_from_KCC s) \<Longrightarrow> trace_enabled s t" for s t c and m' :: "unit M"
+    unfolding set_next_pcc_def
+    by (elim trace_elim write_reg_trace_enabled)
+       (auto simp: register_defs intro: ex exception_targets_run_imp)
+  have [trace_elim]: "(set_CauseReg_BD CP0Cause_ref x, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t x m'
+    unfolding set_CauseReg_BD_def
+    by (elim trace_elim)
+  have [trace_elim]: "(set_CauseReg_ExcCode CP0Cause_ref x, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t x m'
+    unfolding set_CauseReg_ExcCode_def
+    by (elim trace_elim)
+  have [trace_elim]: "(set_StatusReg_EXL CP0Status_ref x, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t x m'
+    unfolding set_StatusReg_EXL_def
+    by (elim trace_elim)
+  have read_KCC_ex_target: "c \<in> exception_targets ISA (read_from_KCC (Mem_Automaton.run s t))"
+    if "Run (read_reg KCC_ref) t c" for s t c
+    using that
+    by (auto elim!: Run_read_regE simp: register_defs)
+  note [derivable_capsE] = Run_read_accessible_PCC_derivable[where regs = regs]
+  show ?thesis
+    using assms(1-3)
+    unfolding SignalException_def bind_assoc
+    by (elim trace_elim read_KCC_ex_target)
+       (derivable_capsI simp: regstate_simp read_reg_PCC_from_iffs)
+qed
+
+lemma traces_enabled_SignalException[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (SignalException arg0 :: 'a M) s regs"
+proof cases
+  assume ex: "ex_traces"
+  then show ?thesis
+    using assms SignalException_trace_enabled
+    unfolding traces_enabled_def
+    by blast
+next
+  assume "\<not> ex_traces"
+  then show ?thesis
+    unfolding traces_enabled_def finished_def isException_def
+    by auto
+qed
+
+lemma [simp]:
+  "name CP0Count_ref = ''CP0Count''"
+  "name TLBRandom_ref = ''TLBRandom''"
+  "name CP0BadVAddr_ref = ''CP0BadVAddr''"
+  "name CapCause_ref = ''CapCause''"
+  "name BranchPending_ref = ''BranchPending''"
+  "name NextInBranchDelay_ref = ''NextInBranchDelay''"
+  "name InBranchDelay_ref = ''InBranchDelay''"
+  "name PC_ref = ''PC''"
+  "name NextPC_ref = ''NextPC''"
+  "name InstCount_ref = ''InstCount''"
+  "name CurrentInstrBits_ref = ''CurrentInstrBits''"
+  by (auto simp: register_defs)
+
+lemma [simp]:
+  "''CP0Count'' \<notin> trans_regs"
+  "''TLBRandom'' \<notin> trans_regs"
+  "''CP0BadVAddr'' \<notin> trans_regs"
+  "''CapCause'' \<notin> trans_regs"
+  "''BranchPending'' \<notin> trans_regs"
+  "''NextInBranchDelay'' \<notin> trans_regs"
+  "''InBranchDelay'' \<notin> trans_regs"
+  "''PC'' \<notin> trans_regs"
+  "''NextPC'' \<notin> trans_regs"
+  "''InstCount'' \<notin> trans_regs"
+  "''CurrentInstrBits'' \<notin> trans_regs"
+  by (auto simp: trans_regs_def)
+
+lemma traces_enabled_SignalExceptionBadAddr[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (SignalExceptionBadAddr arg0 arg1) s regs"
+  unfolding SignalExceptionBadAddr_def
+  by (traces_enabledI assms: assms)
+
+lemma SignalExceptionTLB_trace_enabled:
+  assumes "(SignalExceptionTLB arg0 arg1 :: 'a M, t, m') \<in> Traces" and "reads_regs_from trans_regs t regs"
+    and "PCC_accessible s regs" and ex: "ex_traces"
+  shows "trace_enabled s t"
+proof -
+  have [trace_elim]: "(write_reg CP0BadVAddr_ref v, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t v and m' :: "unit M"
+    by (auto elim!: write_reg_trace_enabled simp: register_defs)
+  have [trace_elim]: "(set_ContextReg_BadVPN2 TLBContext_ref v, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t v and m' :: "unit M"
+    by (auto elim!: trace_elim read_reg_trace_enabled write_reg_trace_enabled simp: set_ContextReg_BadVPN2_def register_defs)
+  have [trace_elim]: "(set_XContextReg_XBadVPN2 TLBXContext_ref v, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t v and m' :: "unit M"
+    by (auto elim!: trace_elim read_reg_trace_enabled write_reg_trace_enabled simp: set_XContextReg_XBadVPN2_def register_defs)
+  have [trace_elim]: "(set_XContextReg_XR TLBXContext_ref v, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t v and m' :: "unit M"
+    by (auto elim!: trace_elim read_reg_trace_enabled write_reg_trace_enabled simp: set_XContextReg_XR_def register_defs)
+  have [trace_elim]: "(set_TLBEntryHiReg_R TLBEntryHi_ref v, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t v and m' :: "unit M"
+    by (auto elim!: trace_elim read_reg_trace_enabled write_reg_trace_enabled simp: set_TLBEntryHiReg_R_def register_defs)
+  have [trace_elim]: "(set_TLBEntryHiReg_VPN2 TLBEntryHi_ref v, t, m') \<in> Traces \<Longrightarrow> trace_enabled s t" for s t v and m' :: "unit M"
+    by (auto elim!: trace_elim read_reg_trace_enabled write_reg_trace_enabled simp: set_TLBEntryHiReg_VPN2_def register_defs)
+  note [derivable_capsI] = ex
+  show ?thesis
+  using assms(1-3)
+  unfolding SignalExceptionTLB_def bind_assoc
+  by (elim trace_elim SignalException_trace_enabled)
+     (derivable_capsI simp: regstate_simp)+
+qed
+
+lemma traces_enabled_SignalExceptionTLB[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (SignalExceptionTLB arg0 arg1) s regs"
+proof cases
+  assume ex: "ex_traces"
+  show ?thesis
+    unfolding traces_enabled_def
+    using assms
+    by (auto elim!: SignalExceptionTLB_trace_enabled intro: ex)
+next
+  assume "\<not>ex_traces"
+  then show ?thesis
+    unfolding traces_enabled_def finished_def isException_def
+    by auto
+qed
+
+lemma traces_enabled_incrementCP0Count[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (incrementCP0Count u) s regs"
+  unfolding incrementCP0Count_def bind_assoc
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_raise_c2_exception8[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (raise_c2_exception8 arg0 arg1) s regs"
+proof cases
+  assume ex: "ex_traces"
+  have 1: "traces_enabled (set_CapCauseReg_ExcCode CapCause_ref x) s regs" for x s regs
+    unfolding set_CapCauseReg_ExcCode_def
+    by (traces_enabledI assms: ex)
+  have 2: "traces_enabled (set_CapCauseReg_RegNum CapCause_ref x) s regs" for x s regs
+    unfolding set_CapCauseReg_RegNum_def
+    by (traces_enabledI assms: ex)
+  show ?thesis
+    unfolding raise_c2_exception8_def bind_assoc
+    by (traces_enabledI assms: assms intro: 1 2)
+next
+  assume "\<not> ex_traces"
+  then show ?thesis
+    unfolding traces_enabled_def finished_def isException_def
+    by auto
+qed
+
+lemma traces_enabled_raise_c2_exception_noreg[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (raise_c2_exception_noreg arg0) s regs"
+  unfolding raise_c2_exception_noreg_def
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_TLBTranslate2[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (TLBTranslate2 arg0 arg1) s regs"
+  unfolding TLBTranslate2_def
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_TLBTranslateC[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (TLBTranslateC arg0 arg1) s regs"
+  unfolding TLBTranslateC_def
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_TLBTranslate[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (TLBTranslate arg0 arg1) s regs"
+  unfolding TLBTranslate_def
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_TranslatePC[traces_enabledI]:
+  assumes "PCC_accessible s regs"
+  shows "traces_enabled (TranslatePC vaddr) s regs"
+  unfolding TranslatePC_def bind_assoc
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_MEMr[traces_enabledI]:
+  shows "traces_enabled (MEMr arg0 arg1) s regs"
+  unfolding MEMr_def read_mem_def read_mem_bytes_def maybe_fail_def bind_assoc
+  by (auto simp: traces_enabled_def elim!: bind_Traces_cases split: option.splits elim: Traces_cases)
+
+lemma traces_enabled_MEMr_wrapper[traces_enabledI]:
+  shows "traces_enabled (MEMr_wrapper arg0 arg1) s regs"
+  unfolding MEMr_wrapper_def bind_assoc
+  by (traces_enabledI_with \<open>-\<close>)
+
+lemma traces_enabled_fetch[traces_enabledI]:
+  assumes "{''DelayedPCC'', ''NextPCC'', ''PCC''} \<subseteq> accessible_regs s"
+  shows "traces_enabled (fetch u) s regs"
+  unfolding fetch_def bind_assoc
+  by (traces_enabledI elim: Run_inv_cp2_next_pc_PCC_accessible assms: assms simp: register_defs)
+
+lemma traces_enabled_instr_fetch[traces_enabledI]:
+  assumes "{''DelayedPCC'', ''NextPCC'', ''PCC''} \<subseteq> accessible_regs s"
+  shows "traces_enabled (instr_fetch ISA) s regs"
+  unfolding ISA_simps
+  by (traces_enabledI assms: assms)
+
+lemma hasTrace_fetch_reg_axioms:
+  assumes "hasTrace t (instr_fetch ISA)"
+    and "reads_regs_from trans_regs t regs" and "trans_inv regs"
+    and "fetch_raises_ex ISA t \<longrightarrow> ex_traces"
+  shows "store_cap_reg_axiom CC ISA ex_traces False t"
+    and "store_cap_mem_axiom CC ISA t"
+    and "read_reg_axiom CC ISA ex_traces t"
+  using assms
+  by (intro traces_enabled_reg_axioms[where m = "instr_fetch ISA" and regs = regs] traces_enabled_instr_fetch; auto)+
 
 end
 

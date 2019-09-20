@@ -1,5 +1,5 @@
 theory CHERI_MIPS_Instantiation
-imports "Sail-CHERI-MIPS.Cheri_lemmas" Recognising_Automata Sail.Sail2_operators_mwords_lemmas Word_Extra
+imports "Sail-CHERI-MIPS.Cheri_lemmas" Cheri_reg_lemmas Recognising_Automata Sail.Sail2_operators_mwords_lemmas Word_Extra
 begin
 
 section \<open>General lemmas (TODO: Add to Sail library)\<close>
@@ -54,6 +54,22 @@ lemma length_mem_bytes_of_word[simp]:
   shows "length (mem_bytes_of_word w) = LENGTH('a) div 8"
   using assms
   by (auto simp add: mem_bytes_of_word_def simp del: take_chunks.simps)
+
+lemma (in State_Invariant) Run_inv_assert_exp_iff[iff]:
+  "Run_inv (assert_exp c msg) t a regs \<longleftrightarrow> c \<and> t = [] \<and> invariant regs"
+  unfolding Run_inv_def
+  by auto
+
+lemma (in Cap_Axiom_Automaton) Run_runs_no_reg_writes_written_regs_eq:
+  assumes "Run m t a" and "runs_no_reg_writes_to {r} m"
+  shows "r \<in> written_regs (run s t) \<longleftrightarrow> r \<in> written_regs s"
+proof -
+  from assms have "E_write_reg r v \<notin> set t" for v
+    unfolding runs_no_reg_writes_to_def
+    by auto
+  then show ?thesis
+    by (induction t arbitrary: s) auto
+qed
 
 section \<open>Instantiation of the abstract model for CHERI-MIPS\<close>
 
@@ -116,10 +132,12 @@ locale CHERI_MIPS_ISA =
   fixes translate_address :: "nat \<Rightarrow> acctype \<Rightarrow> register_value trace \<Rightarrow> nat option"
 begin
 
+abbreviation "fetch_and_decode \<equiv> (fetch () \<bind> (\<lambda>res. case res of Some ast \<Rightarrow> return ast | None \<Rightarrow> Fail ''decode''))"
+
 definition
   "ISA \<equiv>
      \<lparr>instr_sem = execute,
-      instr_fetch = (fetch () \<bind> (\<lambda>res. case res of Some ast \<Rightarrow> return ast | None \<Rightarrow> Fail ''decode'')),
+      instr_fetch = fetch_and_decode,
       tag_granule = 32,
       PCC = {''PCC'', ''NextPCC'', ''DelayedPCC''},
       KCC = {''KCC''},
@@ -127,7 +145,7 @@ definition
       caps_of_regval = (\<lambda>rv. case rv of Regval_Capability c \<Rightarrow> {c} | _ \<Rightarrow> {}),
       invokes_caps = (\<lambda>instr t. case instr of CCall _ \<Rightarrow> True | _ \<Rightarrow> False),
       instr_raises_ex = (\<lambda>instr t. hasException t (execute instr) \<or> hasFailure t (execute instr)),
-      fetch_raises_ex = (\<lambda>t. hasException t (fetch ()) \<or> hasFailure t (fetch ())),
+      fetch_raises_ex = (\<lambda>t. hasException t (fetch_and_decode) \<or> hasFailure t (fetch_and_decode)),
       exception_targets = (\<lambda>rvs. \<Union>rv \<in> rvs. case rv of Regval_Capability c \<Rightarrow> {c} | _ \<Rightarrow> {}),
       privileged_regs = privileged_CHERI_regs,
       translation_tables = (\<lambda>t. {}),
@@ -143,6 +161,7 @@ lemma ISA_simps[simp]:
   "IDC ISA = {''C26''}"
   "privileged_regs ISA = privileged_CHERI_regs"
   "instr_sem ISA = execute"
+  "instr_fetch ISA = (fetch () \<bind> (\<lambda>res. case res of Some ast \<Rightarrow> return ast | None \<Rightarrow> Fail ''decode''))"
   by (auto simp: ISA_def)
 
 lemma invokes_caps_iff_CCall[simp]:
@@ -151,6 +170,10 @@ lemma invokes_caps_iff_CCall[simp]:
 
 lemma instr_raises_ex_iff[simp]:
   "instr_raises_ex ISA instr t \<longleftrightarrow> hasException t (execute instr) \<or> hasFailure t (execute instr)"
+  by (auto simp: ISA_def)
+
+lemma fetch_raises_ex_iff[simp]:
+  "fetch_raises_ex ISA t \<longleftrightarrow> hasException t (fetch_and_decode) \<or> hasFailure t (fetch_and_decode)"
   by (auto simp: ISA_def)
 
 lemma TLBEntries_no_cap:
@@ -707,14 +730,23 @@ lemma leq_perms_refl[intro, simp]: "leq_perms p p"
   unfolding leq_perms_def
   by auto
 
+lemma setCapOffset_getCapOffset_idem:
+  assumes "setCapOffset c offset = (representable, c')"
+    and "uint offset = getCapOffset c"
+  shows "c' = c"
+  using assms uint_bounded[of "Capability_address c"]
+  by (cases c)
+     (auto simp add: setCapOffset_def getCapOffset_def uint_word_ariths mod_add_right_eq simp flip: uint_inject)
+
+
 lemma setCapOffset_derivable_caps[derivable_capsE]:
   assumes "setCapOffset c offset = (representable, c')"
-    and "Capability_tag c \<Longrightarrow> Capability_tag c' \<Longrightarrow> \<not>Capability_sealed c \<or> \<not>Capability_sealed c'"
+    and "Capability_tag c \<Longrightarrow> Capability_tag c' \<Longrightarrow> Capability_sealed c \<and> Capability_sealed c' \<Longrightarrow> uint offset = getCapOffset c"
     and "c \<in> derivable_caps s"
   shows "c' \<in> derivable_caps s"
 proof -
   have "leq_cap CC c' c"
-    using assms
+    using assms setCapOffset_getCapOffset_idem[OF assms(1)]
     by (auto simp: leq_cap_def setCapOffset_def getCapBase_def getCapTop_def get_cap_perms_def)
   then show ?thesis
     using assms
@@ -953,16 +985,14 @@ lemma checkCP0Access_system_reg_access:
   unfolding checkCP0Access_def checkCP0AccessHook_def Run_inv_def
   by (auto elim!: Run_bindE simp: regstate_simp system_reg_access_run pcc_access_system_regs_allows_system_reg_access trace_allows_system_reg_access_append split: if_splits)
 
-lemma runs_no_reg_writes_written_regs_eq:
+lemma Run_inv_runs_no_reg_writes_written_regs_eq:
   assumes "Run_inv m t a regs" and "runs_no_reg_writes_to {r} m"
   shows "r \<in> written_regs (run s t) \<longleftrightarrow> r \<in> written_regs s"
-proof -
-  from assms have "E_write_reg r v \<notin> set t" for v
-    unfolding Run_inv_def runs_no_reg_writes_to_def
-    by auto
-  then show ?thesis
-    by (induction t arbitrary: s) auto
-qed
+  using assms
+  by (auto simp: Run_inv_def Run_runs_no_reg_writes_written_regs_eq)
+
+lemmas runs_no_reg_writes_written_regs_eq =
+  Run_runs_no_reg_writes_written_regs_eq Run_inv_runs_no_reg_writes_written_regs_eq
 
 end
 
@@ -973,13 +1003,18 @@ locale CHERI_MIPS_Fixed_Trans =
   assumes noCP0Access_trans_regstate: "noCP0Access trans_regstate"
 begin
 
-definition "trans_regs \<equiv> {''CP0Status'', ''TLBEntryHi''} \<union> TLBEntries_names"
-definition "trans_inv s \<equiv> (s = trans_regstate)"
+definition "trans_regs \<equiv> {''CP0Status'', ''TLBEntryHi'', ''PCC''} \<union> TLBEntries_names"
+definition "trans_inv s \<equiv> (\<exists>pcc. s\<lparr>regstate.PCC := pcc\<rparr> = trans_regstate)"
 
 lemma invariant_trans_regstate[intro, simp]:
   "trans_inv trans_regstate"
-  using noCP0Access_trans_regstate
-  by (auto simp: trans_inv_def)
+proof -
+  have "trans_regstate\<lparr>regstate.PCC := regstate.PCC trans_regstate\<rparr> = trans_regstate"
+    by auto
+  then show ?thesis
+    unfolding trans_inv_def
+    by blast
+qed
 
 fun MemAccessType_of_acctype :: "acctype \<Rightarrow> MemAccessType" where
   "MemAccessType_of_acctype Load = LoadData"
@@ -995,26 +1030,26 @@ definition translate_addressM :: "nat \<Rightarrow> acctype \<Rightarrow> nat M"
      return (unat paddr))"
 
 definition translate_address :: "nat \<Rightarrow> acctype \<Rightarrow> 'a \<Rightarrow> nat option" where
-  "translate_address vaddr acctype _ = Some (the_result (translate_addressM vaddr acctype))"
+  "translate_address vaddr acctype _ = (if (\<exists>t a regs. Run_inv (translate_addressM vaddr acctype) t a regs) then Some (the_result (translate_addressM vaddr acctype)) else None)"
 
 sublocale CHERI_MIPS_ISA where translate_address = translate_address .
 
 end
 
 locale CHERI_MIPS_Mem_Automaton = CHERI_MIPS_Fixed_Trans +
-  fixes is_fetch :: bool
+  fixes is_fetch :: bool and ex_traces :: bool
 begin
 
 sublocale Mem_Inv_Automaton
-  where CC = CC and ISA = ISA and is_fetch = is_fetch
-    and translation_assm = "\<lambda>t. reads_regs_from inv_regs t trans_regstate"
+  where CC = CC and ISA = ISA and is_fetch = is_fetch and ex_traces = ex_traces
+    and translation_assm = "\<lambda>t. (\<exists>regs. reads_regs_from inv_regs t regs \<and> trans_inv regs)"
     and get_regval = get_regval and set_regval = set_regval
     and invariant = trans_inv and inv_regs = trans_regs
   by unfold_locales (auto simp: ISA_def translate_address_def)
 
 sublocale CHERI_MIPS_Axiom_Inv_Automaton
   where translate_address = translate_address and enabled = enabled
-    and invariant = trans_inv and inv_regs = trans_regs and ex_traces = True
+    and invariant = trans_inv and inv_regs = trans_regs and ex_traces = ex_traces
   by unfold_locales
 
 (*lemma determ_runs_TLBTranslate: "determ_runs (TLBTranslate vaddr acctype)"
@@ -1075,8 +1110,14 @@ proof -
              simp: read_reg_CP0Status_inv_fields)
 qed
 
+lemma trans_inv_regs_eq_trans_regstate:
+  assumes "trans_inv regs"
+  shows "CP0Status regs = CP0Status trans_regstate \<and> TLBEntryHi regs = TLBEntryHi trans_regstate"
+  using assms
+  by (auto simp: trans_inv_def)
+
 lemma determ_runs_read_reg_CP0Status[determ]: "determ_runs (read_reg CP0Status_ref)"
-  by (intro determ_runs_read_inv_reg) (auto simp: trans_regs_def register_defs trans_inv_def)
+  by (intro determ_runs_read_inv_reg) (auto simp: trans_regs_def register_defs dest: trans_inv_regs_eq_trans_regstate)
 
 lemma determ_runs_SignalExceptionBadAddr[determ]: "determ_runs (SignalExceptionBadAddr ex badAddr)"
   by (intro determ_runsI) (auto simp: Run_inv_def)
@@ -1088,6 +1129,13 @@ lemma get_regval_TLBEntries:
   "r \<in> set TLBEntries \<Longrightarrow> trans_inv regs \<Longrightarrow> get_regval (name r) regs = Some (regval_of_TLBEntry (read_from r trans_regstate))"
   by (auto simp: TLBEntries_def trans_inv_def; simp add: register_defs)
 
+lemma read_from_TLBEntries:
+  assumes "idx \<in> {0..63}" and "trans_inv regs"
+  shows "read_from (TLBEntries ! (64 - nat (idx + 1))) trans_regstate = read_from (TLBEntries ! (64 - nat (idx + 1))) regs"
+  using assms
+  unfolding upto_63_unfold
+  by (elim insertE) (auto simp: trans_inv_def TLBEntries_def register_defs)
+
 lemma of_regval_TLBEntries_nth[simp]:
   "idx \<in> {0..63} \<Longrightarrow> of_regval (TLBEntries ! (64 - nat (idx + 1))) v = TLBEntry_of_regval v"
   unfolding upto_63_unfold
@@ -1098,13 +1146,13 @@ lemma determ_runs_read_reg_access_TLBEntries[determ]:
   using that
   by (intro determ_traces_read_inv_reg)
      (auto simp del: TLBEntries_names_unfold
-           simp add: trans_regs_def TLBEntries_names_def regval_of_TLBEntry_def trans_inv_def
-           intro: get_regval_TLBEntries)
+           simp add: trans_regs_def TLBEntries_names_def regval_of_TLBEntry_def
+           intro!: get_regval_TLBEntries read_from_TLBEntries)
 
 lemma determ_traces_read_reg_TLBEntryHi[determ]:
   "determ_traces (read_reg TLBEntryHi_ref)"
   by (intro determ_traces_read_inv_reg)
-     (auto simp: TLBEntryHi_ref_def trans_regs_def trans_inv_def get_regval_def)
+     (auto simp: TLBEntryHi_ref_def trans_regs_def get_regval_def dest: trans_inv_regs_eq_trans_regstate)
 
 lemma determ_traces_tlbSearch[determ]:
   "determ_runs (tlbSearch vAddr)"
@@ -1156,7 +1204,7 @@ proof -
     by (auto simp: translate_address_def determ_the_result_eq)
 qed
 
-lemma [simp]: "tag_granule ISA = 32" by (auto simp: ISA_def)
+end
 
 lemma mult_mod_plus_less:
   assumes "n dvd m" and "n > 0" and "m > 0" and "0 \<le> i" and "i < n"
@@ -1170,14 +1218,6 @@ lemma dvd_nat_iff_int_dvd:
   shows "n dvd nat i \<longleftrightarrow> int n dvd i"
   using assms
   by (auto simp: dvd_def nat_mult_distrib) (use nat_0_le in \<open>fastforce\<close>)
-
-lemma address_tag_aligned_plus_iff[simp]:
-  fixes addr :: "64 word"
-  assumes "int (tag_granule ISA) dvd i" and "0 \<le> i"
-  shows "address_tag_aligned ISA (unat (addr + word_of_int i)) \<longleftrightarrow> address_tag_aligned ISA (unat addr)"
-  using assms
-  unfolding address_tag_aligned_def unat_def mod_eq_0_iff_dvd uint_ge_0[THEN dvd_nat_iff_int_dvd]
-  by (auto simp: uint_word_ariths uint_word_of_int mod_add_right_eq dvd_mod_iff dvd_add_left_iff)
 
 lemma sail_ones_max_word[simp]: "sail_ones n = max_word"
   by (intro word_eqI) (auto simp: sail_ones_def zeros_def)
@@ -1207,6 +1247,19 @@ lemma subrange_subrange_concat_ucast_right:
   using assms
   by (intro word_eqI)
      (auto simp: subrange_subrange_concat_def nth_ucast word_ao_nth nth_shiftl nth_shiftr nat_add_distrib slice_mask_nth)
+
+context CHERI_MIPS_Fixed_Trans
+begin
+
+lemma [simp]: "tag_granule ISA = 32" by (auto simp: ISA_def)
+
+lemma address_tag_aligned_plus_iff[simp]:
+  fixes addr :: "64 word"
+  assumes "int (tag_granule ISA) dvd i" and "0 \<le> i"
+  shows "address_tag_aligned ISA (unat (addr + word_of_int i)) \<longleftrightarrow> address_tag_aligned ISA (unat addr)"
+  using assms
+  unfolding address_tag_aligned_def unat_def mod_eq_0_iff_dvd uint_ge_0[THEN dvd_nat_iff_int_dvd]
+  by (auto simp: uint_word_ariths uint_word_of_int mod_add_right_eq dvd_mod_iff dvd_add_left_iff)
 
 lemma TLBTranslate2_ucast_paddr_eq:
   assumes "Run (TLBTranslate2 vaddr acctype) t (paddr, flag)"

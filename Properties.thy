@@ -28,7 +28,7 @@ locale CHERI_ISA_State = CHERI_ISA CC ISA + Register_Accessors read_regval write
   and write_regval :: "register_name \<Rightarrow> 'regval \<Rightarrow> 'regs \<Rightarrow> 'regs option" +
   (* State versions of ISA model parameters *)
   fixes s_translation_tables :: "'regs sequential_state \<Rightarrow> nat set"
-    and s_translate_address :: "nat \<Rightarrow> bool \<Rightarrow> 'regs sequential_state \<Rightarrow> nat option"
+    and s_translate_address :: "nat \<Rightarrow> acctype \<Rightarrow> 'regs sequential_state \<Rightarrow> nat option"
   assumes read_absorb_write: "\<And>r v s s'. write_regval r v s = Some s' \<Longrightarrow> read_regval r s' = Some v"
     and read_ignore_write: "\<And>r r' v s s'. write_regval r v s = Some s' \<Longrightarrow> r' \<noteq> r \<Longrightarrow> read_regval r' s' = read_regval r' s"
     and translation_tables_sound: "\<And>t s. s_allows_trace t s \<Longrightarrow> translation_tables ISA t \<subseteq> s_translation_tables s"
@@ -96,7 +96,7 @@ inductive_set reachable_caps :: "'regs sequential_state \<Rightarrow> 'cap set" 
      \<Longrightarrow> c \<in> reachable_caps s"
 | Mem:
     "\<lbrakk>get_aligned_mem_cap addr (tag_granule ISA) s = Some c;
-      s_translate_address vaddr True s = Some addr;
+      s_translate_address vaddr Load s = Some addr;
       c' \<in> reachable_caps s; is_tagged_method CC c'; \<not>is_sealed_method CC c';
       set (address_range vaddr (tag_granule ISA)) \<subseteq> get_mem_region_method CC c';
       permit_load_capability (get_perms_method CC c');
@@ -480,7 +480,7 @@ proof (induction i rule: less_induct)
           ultimately show False by blast
         qed
         then obtain vaddr c'
-          where vaddr: "translate_address ISA vaddr True (take j t) = Some paddr"
+          where vaddr: "translate_address ISA vaddr Load (take j t) = Some paddr"
             and c': "c' \<in> derivable (available_caps CC ISA j t)"
                     "is_tagged_method CC c'" "\<not>is_sealed_method CC c'"
                     "set (address_range vaddr sz) \<subseteq> get_mem_region_method CC c'"
@@ -490,8 +490,8 @@ proof (induction i rule: less_induct)
             and aligned: "address_tag_aligned ISA paddr"
           using read t axioms \<open>j < length t\<close> \<open>is_tagged_method CC c\<close>
           unfolding cheri_axioms_def load_mem_axiom_def reads_mem_cap_def
-          by (fastforce simp: reads_mem_val_at_idx_def bind_eq_Some_conv cap_derivable_iff_derivable)
-        have s_vaddr: "s_translate_address vaddr True s = Some paddr"
+          by (fastforce simp: reads_mem_val_at_idx_def bind_eq_Some_conv cap_derivable_iff_derivable split: if_splits)
+        have s_vaddr: "s_translate_address vaddr Load s = Some paddr"
           using vaddr t \<open>j < length t\<close>
           by (blast intro: translate_address_sound[of "take j t"] elim: runTraceS_nth_split)
         from read[unfolded sz] bytes t axioms \<open>j < length t\<close> \<open>is_tagged_method CC c\<close> aligned
@@ -516,7 +516,7 @@ qed
 
 lemma put_regval_get_mem_cap:
   assumes s': "put_reg_val r v s = Some s'"
-    and "s_translate_address addr True s' = s_translate_address addr True s"
+    and "s_translate_address addr acctype s' = s_translate_address addr acctype s"
   shows "get_mem_cap addr sz s' = get_mem_cap addr sz s"
   using assms by (auto cong: bind_option_cong simp: get_mem_bytes_def)
 
@@ -600,7 +600,7 @@ proof
     from c s' \<open>is_tagged_method CC c\<close> aligned axiom show ?case
     proof (cases rule: get_mem_cap_run_trace_cases)
       case Initial
-      have "s_translate_address vaddr True s' = s_translate_address vaddr True s"
+      have "s_translate_address vaddr Load s' = s_translate_address vaddr Load s"
         using s_invariant_run_trace_eq[OF addr_trans_inv s']
         by meson
       then show ?thesis

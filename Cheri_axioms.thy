@@ -18,6 +18,9 @@ begin
 \<comment> \<open>\<open>open import Sail2_operators\<close>\<close>
 \<comment> \<open>\<open>open import Capabilities\<close>\<close>
 
+\<comment> \<open>\<open> TODO: Maybe add a read_kind for instruction fetches, so that we can
+   distinguish loads from fetches in events and don't need to carry around the
+   is_fetch parameter below \<close>\<close>
 datatype acctype = Load | Store | Fetch
 
 record( 'cap, 'regval, 'instr, 'e) isa =
@@ -277,11 +280,12 @@ definition load_mem_axiom  :: " 'cap Capability_class \<Rightarrow>('cap,'regval
         (((translate_address   ISA) vaddr (if is_fetch then Fetch else Load) (List.take i t) = Some paddr) \<and>
         ((List.set (address_range vaddr sz) \<subseteq> (
   (get_mem_region_method   dict_Capabilities_Capability_cap) c')) \<and>
-        ((if is_fetch \<and> (tag = B0) then(permit_execute   (
+        ((if is_fetch then(permit_execute   (
   (get_perms_method   dict_Capabilities_Capability_cap) c')) else(permit_load   (
   (get_perms_method   dict_Capabilities_Capability_cap) c'))) \<and>
+	((is_fetch \<longrightarrow> (tag = B0)) \<and>
         ((tag \<noteq> B0) \<longrightarrow> ((permit_load_capability  (
-  (get_perms_method   dict_Capabilities_Capability_cap) c')) \<and> ((sz =(tag_granule   ISA)) \<and> address_tag_aligned ISA paddr)))))))))))))" 
+  (get_perms_method   dict_Capabilities_Capability_cap) c')) \<and> ((sz =(tag_granule   ISA)) \<and> address_tag_aligned ISA paddr))))))))))))))" 
   for  dict_Capabilities_Capability_cap  :: " 'cap Capability_class " 
   and  ISA  :: "('cap,'regval,'instr,'e)isa " 
   and  is_fetch  :: " bool " 
