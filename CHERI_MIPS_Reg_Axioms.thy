@@ -1163,6 +1163,16 @@ lemma preserves_invariant_execute_CLLC[preserves_invariantI]:
   unfolding execute_CLLC_def bind_assoc
   by preserves_invariantI
 
+lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CCLC arg0 arg1)"
+  unfolding execute_CCLC_def bind_assoc
+  by preserves_invariantI
+
+lemma preserves_invariant_execute_CClearTags[preserves_invariantI]:
+  "runs_preserve_invariant (execute_CClearTags arg0)"
+  unfolding execute_CClearTags_def bind_assoc
+  by preserves_invariantI
+
 lemma preserves_invariant_execute_CLCBI[preserves_invariantI]:
   "runs_preserve_invariant (execute_CLCBI arg0 arg1 arg2)"
   unfolding execute_CLCBI_def bind_assoc
@@ -1420,10 +1430,13 @@ lemma traces_enabled_write_cap_regs[traces_enabledI]:
     and "traces_enabled (write_reg KDC_ref c) s regs"
     and "traces_enabled (write_reg KR1C_ref c) s regs"
     and "traces_enabled (write_reg KR2C_ref c) s regs"
-    and "\<And>c. traces_enabled (write_reg CapCause_ref c) s regs"
     and "traces_enabled (write_reg NextPCC_ref c) s regs"
     and "traces_enabled (write_reg PCC_ref c) s regs"
   using assms
+  by (intro traces_enabled_write_reg; auto simp: register_defs derivable_caps_def)+
+
+lemma traces_enabled_write_reg_CapCause[traces_enabledI]:
+  "traces_enabled (write_reg CapCause_ref c) s regs"
   by (intro traces_enabled_write_reg; auto simp: register_defs derivable_caps_def)+
 
 lemma traces_enabled_read_cap_regs[traces_enabledI]:
@@ -1649,10 +1662,10 @@ proof cases
   assume ex: "ex_traces"
   have set_ExcCode: "traces_enabled (set_CapCauseReg_ExcCode CapCause_ref exc) s regs" for exc s regs
     unfolding set_CapCauseReg_ExcCode_def
-    by (traces_enabledI intro: traces_enabled_read_reg traces_enabled_write_reg ex simp: CapCause_ref_def)
+    by (traces_enabledI intro: ex)
   have set_RegNum: "traces_enabled (set_CapCauseReg_RegNum CapCause_ref r) s regs" for r s regs
     unfolding set_CapCauseReg_RegNum_def
-    by (traces_enabledI intro: traces_enabled_read_reg traces_enabled_write_reg ex simp: CapCause_ref_def)
+    by (traces_enabledI intro: ex)
   show ?thesis
     unfolding raise_c2_exception8_def bind_assoc
     by (traces_enabledI intro: set_ExcCode set_RegNum assms: assms simp: CapCause_ref_def)
@@ -1817,12 +1830,6 @@ lemma traces_enabled_get_CP0EPC[traces_enabledI]:
   shows "traces_enabled (get_CP0EPC arg0) s regs"
   unfolding get_CP0EPC_def bind_assoc
   by (traces_enabledI assms: assms simp: accessible_regs_def)
-
-lemma if_derivable_caps[derivable_capsI]:
-  assumes "c \<Longrightarrow> c1 \<in> derivable_caps s" and "\<not>c \<Longrightarrow> c2 \<in> derivable_caps s"
-  shows "(if c then c1 else c2) \<in> derivable_caps s"
-  using assms
-  by auto
 
 lemma traces_enabled_set_CP0EPC[traces_enabledI]:
   assumes "{''EPCC''} \<subseteq> accessible_regs s"
@@ -2446,6 +2453,18 @@ lemma traces_enabled_execute_CLLC[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
   shows "traces_enabled (execute_CLLC arg0 arg1) s regs"
   unfolding execute_CLLC_def bind_assoc
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_execute_CCLC[traces_enabledI]:
+  assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
+  shows "traces_enabled (execute_CCLC arg0 arg1) s regs"
+  unfolding execute_CCLC_def bind_assoc
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_execute_CClearTags[traces_enabledI]:
+  assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
+  shows "traces_enabled (execute_CClearTags arg0) s regs"
+  unfolding execute_CClearTags_def bind_assoc
   by (traces_enabledI assms: assms)
 
 lemma traces_enabled_execute_CLCBI[traces_enabledI]:

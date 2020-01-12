@@ -175,9 +175,8 @@ let store_mem_axiom ISA t =
         cap_derivable (available_caps ISA i t) c' && is_tagged c' && not (is_sealed c') &&
         ISA.translate_address vaddr Store (take i t) = Just paddr &&
         Set.fromList (address_range vaddr sz) subset (get_mem_region c') &&
-        (if (mem_val_is_cap ISA v tag && tag = B1)
-         then (get_perms c').permit_store_capability
-         else (get_perms c').permit_store) &&
+        (get_perms c').permit_store &&
+        ((mem_val_is_cap ISA v tag && tag = B1) --> (get_perms c').permit_store_capability) &&
         (mem_val_is_local_cap ISA v tag && tag = B1 --> (get_perms c').permit_store_local_capability)))
 
 val cheri_axioms : forall 'cap 'regval 'instr 'e. Capability 'cap, SetType 'cap, SetType 'regval, Eq 'cap, Eq 'regval =>

@@ -145,6 +145,116 @@ sublocale CHERI_ISA_State where CC = CC and ISA = ISA
 
 thm reachable_caps_instrs_trace_intradomain_monotonicity
 
+lemma regstate_put_mem_bytes_eq[simp]:
+  "regstate (put_mem_bytes addr sz v tag s) = regstate s"
+  by (auto simp: put_mem_bytes_def Let_def)
+
+lemma set_regval_Some_Some:
+  assumes "set_regval r v s = Some s1"
+  obtains s1' where "set_regval r v s' = Some s1'"
+  using assms
+  by (elim set_regval_cases of_regval_SomeE) (auto simp: register_defs)
+
+lemma get_regval_eq_reads_regs_imp:
+  assumes "\<forall>r \<in> Rs. get_regval r s = get_regval r s'"
+    and "reads_regs_from Rs t s'"
+  shows "reads_regs_from Rs t s"
+proof (use assms in \<open>induction t arbitrary: s s'\<close>)
+  case (Cons e t)
+  then show ?case
+  proof (cases e)
+    fix r v
+    assume e: "e = E_write_reg r v"
+    with Cons show ?thesis
+    proof cases
+      assume r: "r \<in> Rs"
+      with Cons.prems e obtain s1' where s1': "set_regval r v s' = Some s1'" and *: "reads_regs_from Rs t s1'"
+        by (auto split: if_splits option.splits)
+      moreover obtain s1 where s1: "set_regval r v s = Some s1"
+        by (rule set_regval_Some_Some[OF s1'])
+      have **: "\<forall>r' \<in> Rs. get_regval r' s1 = get_regval r' s1'"
+      proof
+        fix r'
+        assume "r' \<in> Rs"
+        then show "get_regval r' s1 = get_regval r' s1'"
+          using s1 s1' Cons.prems
+          by (cases "r' = r") (auto simp: get_absorb_set_regval get_ignore_set_regval)
+      qed
+      show ?thesis
+        using e r s1 Cons.IH[OF ** *]
+        by auto
+    qed auto
+  qed (auto split: if_splits option.splits)
+qed auto
+
+lemma set_other_reg_reads_regs_iff:
+  assumes "set_regval r v s = Some s'" and "r \<notin> Rs"
+  shows "reads_regs_from Rs t s' = reads_regs_from Rs t s"
+proof -
+  have "\<forall>r' \<in> Rs. get_regval r' s = get_regval r' s'"
+    using assms get_ignore_set_regval
+    by fastforce
+  then show ?thesis
+    using get_regval_eq_reads_regs_imp[of Rs s s' t]
+    using get_regval_eq_reads_regs_imp[of Rs s' s t]
+    by auto
+qed
+
+lemma reads_regs_from_mono:
+  assumes "reads_regs_from Rs t s"
+    and "Rs' \<subseteq> Rs"
+  shows "reads_regs_from Rs' t s"
+  using assms
+  by (induction Rs t s rule: reads_regs_from.induct)
+     (auto split: if_splits option.splits dest: set_other_reg_reads_regs_iff[where Rs = Rs'])
+
+(*lemma s_run_trace_reads_regs_from:
+  assumes "s_run_trace t s = Some s'"
+  shows "reads_regs_from Rs t (regstate s)"
+proof (use assms in \<open>induction t arbitrary: s\<close>)
+  case (Cons e t)
+  then obtain s'' where "s_emit_event e s = Some s''" and t: "s_run_trace t s'' = Some s'"
+    by (auto split: Option.bind_splits)
+  moreover from Cons.IH[OF t] have "reads_regs_from Rs t (regstate s'')" .
+  ultimately show ?case
+    by (cases e) (auto split: Option.bind_splits if_splits simp: set_other_reg_reads_regs_iff)
+qed auto*)
+
+lemma s_invariant_trivial:
+  assumes t: "s_allows_trace t s" and f: "\<And>s'. f s' = f s"
+  shows "s_invariant f t s"
+proof -
+  have f: "f s1 = f s2" for s1 s2
+    using f[of s1] f[of s2, symmetric]
+    by auto
+  obtain s' where "s_run_trace t s = Some s'"
+    using t
+    by blast
+  then show "s_invariant f t s"
+    by (induction "(get_regval, set_regval)" t s rule: runTraceS.induct)
+       (auto split: Option.bind_splits intro: f)
+qed
+
+lemma hasTrace_fetch_execute_reachable_caps_mono:
+  assumes t: "hasTrace t (fetch_execute_loop ISA n)"
+    and s: "s_run_trace t s = Some s'"
+    and regs: "reads_regs_from trans_regs t trans_regstate"
+    and no_ex: "\<not> instrs_raise_ex ISA n t"
+    and no_ccall: "\<not> instrs_invoke_caps ISA n t"
+  shows "reachable_caps s' \<subseteq> reachable_caps s"
+proof (intro reachable_caps_instrs_trace_intradomain_monotonicity[OF t _ s no_ex no_ccall])
+  have "state_assms t trans_regstate trans_regstate"
+    using regs
+    by (auto simp: state_assms_def trans_regs_def elim: reads_regs_from_mono)
+  then show "fetch_assms t"
+    by (auto simp: fetch_assms_def)
+  show "s_invariant (\<lambda>s' addr load. local.translate_address addr load s') t s"
+    and "s_invariant (\<lambda>_. {}) t s"
+    and "s_invariant_holds no_caps_in_translation_tables t s"
+    using s
+    by (auto simp: translate_address_def no_caps_in_translation_tables_def intro: s_invariant_trivial)
+qed
+
 end
 
 end

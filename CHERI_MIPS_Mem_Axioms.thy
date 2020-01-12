@@ -975,6 +975,16 @@ lemma preserves_invariant_execute_CLLC[preserves_invariantI]:
   unfolding execute_CLLC_def bind_assoc
   by (preserves_invariantI)
 
+lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
+  shows "runs_preserve_invariant (execute_CCLC arg0 arg1)"
+  unfolding execute_CCLC_def bind_assoc
+  by (preserves_invariantI)
+
+lemma preserves_invariant_execute_CClearTags[preserves_invariantI]:
+  shows "runs_preserve_invariant (execute_CClearTags arg0)"
+  unfolding execute_CClearTags_def bind_assoc
+  by (preserves_invariantI)
+
 lemma preserves_invariant_execute_CLCBI[preserves_invariantI]:
   shows "runs_preserve_invariant (execute_CLCBI arg0 arg1 arg2)"
   unfolding execute_CLCBI_def bind_assoc
@@ -1851,6 +1861,36 @@ lemma traces_enabled_execute_CLLC[traces_enabledI]:
   unfolding execute_CLLC_def bind_assoc
   by (traces_enabledI assms: assms)
 
+lemma traces_enabled_execute_CCLC[traces_enabledI]:
+  assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
+  shows "traces_enabled (execute_CCLC arg0 arg1) s regs"
+  unfolding execute_CCLC_def bind_assoc
+  by (traces_enabledI assms: assms)
+
+lemma traces_enabled_execute_CClearTags[traces_enabledI]:
+  assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
+  shows "traces_enabled (execute_CClearTags arg0) s regs"
+  unfolding execute_CClearTags_def bind_assoc
+  (* by (traces_enabledI assms: assms) *)
+  apply (traces_enabledI_with \<open>-\<close>)
+  apply (derivable_caps_step)
+  apply (derivable_caps_step)
+  apply (derivable_caps_step)
+  apply (derivable_caps_step)
+  apply (auto)[]
+  apply (auto)[]
+  apply (auto)[]
+  apply (auto)[]
+  defer
+  defer
+  apply (auto)[]
+  apply (auto)[]
+  apply (auto)[]
+  apply (derivable_caps_step)
+  apply (derivable_caps_step)
+  apply (derivable_caps_step)
+  sorry
+
 lemma traces_enabled_execute_CLCBI[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
   shows "traces_enabled (execute_CLCBI arg0 arg1 arg2) s regs"
@@ -2138,10 +2178,13 @@ lemma traces_enabled_write_cap_regs[traces_enabledI]:
     and "traces_enabled (write_reg KDC_ref c) s regs"
     and "traces_enabled (write_reg KR1C_ref c) s regs"
     and "traces_enabled (write_reg KR2C_ref c) s regs"
-    and "\<And>c. traces_enabled (write_reg CapCause_ref c) s regs"
     and "traces_enabled (write_reg NextPCC_ref c) s regs"
     and "traces_enabled (write_reg PCC_ref c) s regs"
   using assms
+  by (intro traces_enabled_write_reg; auto simp: register_defs derivable_caps_def)+
+
+lemma traces_enabled_write_reg_CapCause[traces_enabledI]:
+  "traces_enabled (write_reg CapCause_ref c) s regs"
   by (intro traces_enabled_write_reg; auto simp: register_defs derivable_caps_def)+
 
 lemma traces_enabled_read_cap_regs[traces_enabledI]:

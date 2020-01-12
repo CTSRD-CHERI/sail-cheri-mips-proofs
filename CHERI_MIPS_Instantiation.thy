@@ -1099,7 +1099,7 @@ lemma Run_inv_checkCP0Access_False[simp]:
   "Run_inv (checkCP0Access u) t a regs \<longleftrightarrow> False"
 proof -
   define signal_ex :: "unit M"
-    where "signal_ex \<equiv> set_CauseReg_CE CP0Cause_ref (vec_of_bits [B0, B0]) \<then> SignalException CpU"
+    where "signal_ex \<equiv> set_CauseReg_CE CP0Cause_ref 0 \<then> SignalException CpU"
   have "Run_inv signal_ex t a regs \<longleftrightarrow> False" for t a regs
     unfolding signal_ex_def Run_inv_def
     by (auto elim!: Run_bindE)

@@ -343,15 +343,14 @@ definition store_mem_axiom  :: " 'cap Capability_class \<Rightarrow>('cap,'regva
         (((translate_address   ISA) vaddr Store (List.take i t) = Some paddr) \<and>
         ((List.set (address_range vaddr sz) \<subseteq> (
   (get_mem_region_method   dict_Capabilities_Capability_cap) c')) \<and>
-        ((if (mem_val_is_cap 
-  dict_Capabilities_Capability_cap ISA v tag \<and> (tag = B1))
-         then(permit_store_capability   (
-  (get_perms_method   dict_Capabilities_Capability_cap) c'))
-         else(permit_store   (
+        ((permit_store  (
+  (get_perms_method   dict_Capabilities_Capability_cap) c')) \<and>
+        (((mem_val_is_cap 
+  dict_Capabilities_Capability_cap ISA v tag \<and> (tag = B1)) \<longrightarrow>(permit_store_capability   (
   (get_perms_method   dict_Capabilities_Capability_cap) c'))) \<and>
         ((mem_val_is_local_cap 
   dict_Capabilities_Capability_cap ISA v tag \<and> (tag = B1)) \<longrightarrow>(permit_store_local_capability   (
-  (get_perms_method   dict_Capabilities_Capability_cap) c')))))))))))))" 
+  (get_perms_method   dict_Capabilities_Capability_cap) c'))))))))))))))" 
   for  dict_Capabilities_Capability_cap  :: " 'cap Capability_class " 
   and  ISA  :: "('cap,'regval,'instr,'e)isa " 
   and  t  :: "('regval event)list "

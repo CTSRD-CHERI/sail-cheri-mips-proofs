@@ -1347,6 +1347,12 @@ method traces_enabledI uses simp intro elim assms =
 
 (* method traces_enabledI = (intro traces_enabledI preserves_invariantI) *)
 
+lemma if_derivable_capsI[derivable_capsI]:
+  assumes "cond \<Longrightarrow> c1 \<in> derivable_caps s" and "\<not>cond \<Longrightarrow> c2 \<in> derivable_caps s"
+  shows "(if cond then c1 else c2) \<in> derivable_caps s"
+  using assms
+  by auto
+
 end
 
 locale Write_Cap_Inv_Automaton =
