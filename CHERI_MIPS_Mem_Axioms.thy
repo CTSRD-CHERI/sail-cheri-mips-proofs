@@ -975,7 +975,7 @@ lemma preserves_invariant_execute_CLLC[preserves_invariantI]:
   unfolding execute_CLLC_def bind_assoc
   by (preserves_invariantI)
 
-lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
+(*lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
   shows "runs_preserve_invariant (execute_CCLC arg0 arg1)"
   unfolding execute_CCLC_def bind_assoc
   by (preserves_invariantI)
@@ -983,7 +983,7 @@ lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
 lemma preserves_invariant_execute_CClearTags[preserves_invariantI]:
   shows "runs_preserve_invariant (execute_CClearTags arg0)"
   unfolding execute_CClearTags_def bind_assoc
-  by (preserves_invariantI)
+  by (preserves_invariantI)*)
 
 lemma preserves_invariant_execute_CLCBI[preserves_invariantI]:
   shows "runs_preserve_invariant (execute_CLCBI arg0 arg1 arg2)"
@@ -1861,7 +1861,7 @@ lemma traces_enabled_execute_CLLC[traces_enabledI]:
   unfolding execute_CLLC_def bind_assoc
   by (traces_enabledI assms: assms)
 
-lemma traces_enabled_execute_CCLC[traces_enabledI]:
+(*lemma traces_enabled_execute_CCLC[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
   shows "traces_enabled (execute_CCLC arg0 arg1) s regs"
   unfolding execute_CCLC_def bind_assoc
@@ -1889,7 +1889,7 @@ lemma traces_enabled_execute_CClearTags[traces_enabledI]:
   apply (derivable_caps_step)
   apply (derivable_caps_step)
   apply (derivable_caps_step)
-  sorry
+  sorry*)
 
 lemma traces_enabled_execute_CLCBI[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
@@ -2050,7 +2050,7 @@ proof -
     using assms
     unfolding TranslatePC_def bind_assoc Let_def
     by (intro access_enabled_FetchI[where c = "regstate.PCC regs" and vaddr = "unat (to_bits 64 (getCapBase (regstate.PCC regs) + uint vaddr) :: 64 word)"])
-       (auto elim!: Run_inv_bindE Run_inv_ifE intro: preserves_invariantI traces_runs_preserve_invariantI derivable_caps_run_imp simp add: getCapBounds_def simp del: unat_to_bits dest!: TLBTranslate_Instruction_translate_address_eq[where t' = "[] :: register_value trace"])
+       (auto elim!: Run_inv_bindE Run_inv_ifE intro!: preserves_invariantI intro: traces_runs_preserve_invariantI derivable_caps_run_imp simp add: getCapBounds_def simp del: unat_to_bits dest!: TLBTranslate_Instruction_translate_address_eq[where t' = "[] :: register_value trace"])
 qed
 
 lemma [simp]:

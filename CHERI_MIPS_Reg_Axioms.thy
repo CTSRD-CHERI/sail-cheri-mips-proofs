@@ -1163,7 +1163,7 @@ lemma preserves_invariant_execute_CLLC[preserves_invariantI]:
   unfolding execute_CLLC_def bind_assoc
   by preserves_invariantI
 
-lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
+(*lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
   "runs_preserve_invariant (execute_CCLC arg0 arg1)"
   unfolding execute_CCLC_def bind_assoc
   by preserves_invariantI
@@ -1171,7 +1171,7 @@ lemma preserves_invariant_execute_CCLC[preserves_invariantI]:
 lemma preserves_invariant_execute_CClearTags[preserves_invariantI]:
   "runs_preserve_invariant (execute_CClearTags arg0)"
   unfolding execute_CClearTags_def bind_assoc
-  by preserves_invariantI
+  by preserves_invariantI*)
 
 lemma preserves_invariant_execute_CLCBI[preserves_invariantI]:
   "runs_preserve_invariant (execute_CLCBI arg0 arg1 arg2)"
@@ -2455,7 +2455,7 @@ lemma traces_enabled_execute_CLLC[traces_enabledI]:
   unfolding execute_CLLC_def bind_assoc
   by (traces_enabledI assms: assms)
 
-lemma traces_enabled_execute_CCLC[traces_enabledI]:
+(*lemma traces_enabled_execute_CCLC[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
   shows "traces_enabled (execute_CCLC arg0 arg1) s regs"
   unfolding execute_CCLC_def bind_assoc
@@ -2465,7 +2465,7 @@ lemma traces_enabled_execute_CClearTags[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"
   shows "traces_enabled (execute_CClearTags arg0) s regs"
   unfolding execute_CClearTags_def bind_assoc
-  by (traces_enabledI assms: assms)
+  by (traces_enabledI assms: assms)*)
 
 lemma traces_enabled_execute_CLCBI[traces_enabledI]:
   assumes "{''PCC''} \<subseteq> accessible_regs s" and "CapRegs_names \<subseteq> accessible_regs s"

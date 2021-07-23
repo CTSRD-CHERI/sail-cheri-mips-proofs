@@ -408,8 +408,7 @@ lemma no_cap_regvals[simp]:
   "\<And>v. CauseReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. StatusReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. ContextReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
-  "\<And>v. XContextReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv 
-= {}"
+  "\<And>v. XContextReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. int_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. TLBEntry_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"
   "\<And>v. TLBEntryHiReg_of_regval rv = Some v \<Longrightarrow> caps_of_regval ISA rv = {}"

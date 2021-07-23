@@ -238,7 +238,7 @@ qed
 lemma hasTrace_fetch_execute_reachable_caps_mono:
   assumes t: "hasTrace t (fetch_execute_loop ISA n)"
     and s: "s_run_trace t s = Some s'"
-    and regs: "reads_regs_from trans_regs t trans_regstate"
+    and regs: "reads_regs_from trans_regs t trans_regstate" \<comment> \<open>Fixes contents of address translation control registers and assumes that we are in user mode via @{thm noCP0Access_trans_regstate}.\<close>
     and no_ex: "\<not> instrs_raise_ex ISA n t"
     and no_ccall: "\<not> instrs_invoke_caps ISA n t"
   shows "reachable_caps s' \<subseteq> reachable_caps s"
