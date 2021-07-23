@@ -2,9 +2,9 @@ theory Trace_Assumptions
   imports "Sail.Sail2_state_lemmas" "HOL-Eisbach.Eisbach_Tools"
 begin
 
-section \<open>Trivia\<close>
+section \<open>Verification infrastructure\<close>
 
-text \<open>TODO: Add this to library\<close>
+(* TODO: Add this to library *)
 
 lemma return_Traces_iff[simp]:
   "(return x, t, m') \<in> Traces \<longleftrightarrow> t = [] \<and> m' = Done x"
@@ -117,30 +117,7 @@ lemma Run_catch_early_returnE:
   unfolding catch_early_return_def
   by (elim Run_try_catchE) (auto split: sum.splits)
 
-section \<open>(Conditionally) deterministic monadic expressions\<close>
-
-definition "determ_exp_if P m c \<equiv> (\<forall>t a. Run m t a \<and> P t \<longrightarrow> a = c)"
-definition "prefix_closed P \<equiv> (\<forall>t1 t2. P (t1 @ t2) \<longrightarrow> P t1)"
-
-lemma Run_bind_determ_exp_ifE:
-  assumes "prefix_closed P"
-    and "determ_exp_if P m c"
-    and "Run (m \<bind> f) t a"
-    and "P t"
-  obtains tm tf where "Run m tm c" and "Run (f c) tf a" and "t = tm @ tf"
-  using assms
-  by (elim Run_bindE) (auto simp: determ_exp_if_def prefix_closed_def)
-
-abbreviation "determ_exp \<equiv> determ_exp_if (\<lambda>_. True)"
-
-lemma Run_bind_determ_expE:
-  assumes "determ_exp m c"
-    and "Run (m \<bind> f) t a"
-  obtains tm tf where "Run m tm c" and "Run (f c) tf a" and "t = tm @ tf"
-  using assms
-  by (elim Run_bindE) (auto simp: determ_exp_if_def)
-
-section \<open>Assumptions about register reads and writes\<close>
+subsection \<open>Assumptions about register reads and writes\<close>
 
 definition "no_reg_writes_to Rs m \<equiv> (\<forall>t m' r v. (m, t, m') \<in> Traces \<and> r \<in> Rs \<longrightarrow> E_write_reg r v \<notin> set t)"
 definition "runs_no_reg_writes_to Rs m \<equiv> (\<forall>t a r v. Run m t a \<and> r \<in> Rs \<longrightarrow> E_write_reg r v \<notin> set t)"
@@ -435,7 +412,7 @@ method RunE uses elim =
 
 end
 
-section \<open>State invariants\<close>
+subsection \<open>State invariants\<close>
 
 locale State_Invariant = Register_State get_regval set_regval
   for get_regval :: "string \<Rightarrow> 'regstate \<Rightarrow> 'regval option"
@@ -901,5 +878,28 @@ lemma determ_traces_exit[determ]: "determ_traces (exit0 u)"
 lemmas determ_runs_exit0 = determ_traces_exit[THEN determ_traces_runs, determ]
 
 end
+
+text \<open>(Conditionally) deterministic monadic expressions\<close>
+
+definition "determ_exp_if P m c \<equiv> (\<forall>t a. Run m t a \<and> P t \<longrightarrow> a = c)"
+definition "prefix_closed P \<equiv> (\<forall>t1 t2. P (t1 @ t2) \<longrightarrow> P t1)"
+
+lemma Run_bind_determ_exp_ifE:
+  assumes "prefix_closed P"
+    and "determ_exp_if P m c"
+    and "Run (m \<bind> f) t a"
+    and "P t"
+  obtains tm tf where "Run m tm c" and "Run (f c) tf a" and "t = tm @ tf"
+  using assms
+  by (elim Run_bindE) (auto simp: determ_exp_if_def prefix_closed_def)
+
+abbreviation "determ_exp \<equiv> determ_exp_if (\<lambda>_. True)"
+
+lemma Run_bind_determ_expE:
+  assumes "determ_exp m c"
+    and "Run (m \<bind> f) t a"
+  obtains tm tf where "Run m tm c" and "Run (f c) tf a" and "t = tm @ tf"
+  using assms
+  by (elim Run_bindE) (auto simp: determ_exp_if_def)
 
 end

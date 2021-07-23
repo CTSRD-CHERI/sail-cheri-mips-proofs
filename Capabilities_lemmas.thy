@@ -2,6 +2,8 @@ theory Capabilities_lemmas
 imports Capabilities
 begin
 
+subsection \<open>Helper definitions and lemmas\<close>
+
 locale Capabilities =
   fixes CC :: "'cap Capability_class"
   assumes is_tagged_set_tag[simp]: "\<And>c tag. is_tagged_method CC (set_tag_method CC c tag) = tag"

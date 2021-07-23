@@ -2,6 +2,8 @@ theory CHERI_MIPS_Gen_Lemmas
 imports CHERI_MIPS_Instantiation
 begin
 
+subsection \<open>Footprint lemmas\<close>
+
 context CHERI_MIPS_Axiom_Inv_Automaton
 begin
 

@@ -2,6 +2,8 @@ theory CHERI_MIPS_Properties
 imports CHERI_MIPS_Reg_Axioms CHERI_MIPS_Mem_Axioms Properties
 begin
 
+subsection \<open>Instantiation of monotonicity result\<close>
+
 context CHERI_MIPS_Reg_Automaton
 begin
 
@@ -235,10 +237,10 @@ proof -
        (auto split: Option.bind_splits intro: f)
 qed
 
-lemma hasTrace_fetch_execute_reachable_caps_mono:
+theorem cheri_mips_cap_monotonicity:
   assumes t: "hasTrace t (fetch_execute_loop ISA n)"
     and s: "s_run_trace t s = Some s'"
-    and regs: "reads_regs_from trans_regs t trans_regstate" \<comment> \<open>Fixes contents of address translation control registers and assumes that we are in user mode via @{thm noCP0Access_trans_regstate}.\<close>
+    and regs: "reads_regs_from trans_regs t trans_regstate" \<comment> \<open>Fixes contents of address translation control registers and implies that we are in user mode via the assumption @{thm noCP0Access_trans_regstate}.\<close>
     and no_ex: "\<not> instrs_raise_ex ISA n t"
     and no_ccall: "\<not> instrs_invoke_caps ISA n t"
   shows "reachable_caps s' \<subseteq> reachable_caps s"

@@ -2,6 +2,8 @@ theory CHERI_MIPS_Reg_Axioms
 imports CHERI_MIPS_Gen_Lemmas
 begin
 
+subsection \<open>Register and capability derivability properties of instructions\<close>
+
 context CHERI_MIPS_Reg_Automaton
 begin
 

@@ -2,6 +2,8 @@ theory Recognising_Automata
 imports Cheri_axioms_lemmas Sail.Sail2_state_lemmas Trace_Assumptions
 begin
 
+subsection \<open>Verification tools for CHERI properties\<close>
+
 text \<open>For proving that a concrete ISA satisfies the CHERI axioms, we define an automaton for
 each axiom that only accepts traces satisfying the axiom.  The state of the automaton keeps track
 of relevant information, e.g. the capabilities read so far.

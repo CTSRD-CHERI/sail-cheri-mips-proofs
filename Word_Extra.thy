@@ -10,18 +10,18 @@ imports
 begin
 (*>*)
 
-section \<open>Library for machine words\<close>
+subsection \<open>Lemmas about machine words\<close>
 
 text \<open>We first prove lemmas about integers, then about definitions that create words (such as
 @{const mask} and @{const max_word}), then about definitions that manipulate words of the same size
 (such as \<open>NOT\<close>, \<open>AND\<close>, \ldots), then about definitions that manipulate words of different sizes
 (such as @{const ucast}, @{const slice}) and finally we define a bit-wise order over words.\<close>
 
-subsection \<open>Integers\<close>
+subsubsection \<open>Integers\<close>
 
 text \<open>We start by proving lemmas about integers that can later be lifted to machine words.\<close>
 
-subsubsection \<open>Power of two difference\<close>
+paragraph \<open>Power of two difference\<close>
 
 lemma mod_power_self:
   fixes x :: "'a::euclidean_semiring_cancel"
@@ -82,7 +82,7 @@ next
     qed
 qed
 
-subsubsection \<open>Nth bit of products, divisions and remainders\<close>
+paragraph \<open>Nth bit of products, divisions and remainders\<close>
 
 lemma bin_nth_prod:
   shows "bin_nth (2 ^ n * m) k = (bin_nth m (k - n) \<and> n \<le> k)"
@@ -159,7 +159,7 @@ next
     qed      
 qed
 
-subsection \<open>Words to and from integers\<close>
+subsubsection \<open>Words to and from integers\<close>
 
 lemma uint_less [simp]:
   fixes x :: "'a::len0 word"
@@ -172,7 +172,7 @@ lemma test_bit_nat:
   shows "(of_nat n::'a::len word) !! m = (m < LENGTH('a) \<and> bin_nth (int n) m)"
 unfolding word_of_nat test_bit_wi ..
 
-subsection \<open>Exhaustive enumeration of small words\<close>
+subsubsection \<open>Exhaustive enumeration of small words\<close>
 
 lemma exhaustive_1_word:
   fixes x :: "1 word"
@@ -241,7 +241,7 @@ lemma of_bl_eq_1_word[simp]:
   "of_bl [b] = (0 :: 1 word) \<longleftrightarrow> \<not>b"
   by (cases b) auto
 
-subsection \<open>Masks\<close>
+subsubsection \<open>Masks\<close>
 
 text \<open>We see @{const max_word} as a special case of @{const mask}.\<close>
 
@@ -354,7 +354,7 @@ corollary min_length_unat:
 using min_unat_length[where x=x]
 by simp
 
-subsection \<open>@{const max_word}\<close>
+subsubsection \<open>@{const max_word}\<close>
 
 text \<open>These lemmas are not a corollary of a corresponding lemma about @{const mask}.\<close>
 
@@ -369,7 +369,7 @@ lemma max_word_less [simp]:
 unfolding not_le[THEN sym]
 by simp_all
 
-subsection \<open>Negation\<close>
+subsubsection \<open>Negation\<close>
 
 lemma word_not_alt:
   fixes x :: "'a::len word"
@@ -406,14 +406,14 @@ corollary unat_not_mask:
          (if LENGTH('a) \<le> n then 0 else 2 ^ LENGTH('a) - 2 ^ n)"
 by (auto simp: unat_not unat_max_word unat_mask)
 
-subsection \<open>Conjunction\<close>
+subsubsection \<open>Conjunction\<close>
         
 lemma conj_outside_absorb [simp]:
   fixes x y :: "'a::len word"
   shows "x AND y AND x = x AND y"
 by (simp add: word_bool_alg.conj.commute)
 
-subsection \<open>XOR\<close>
+subsubsection \<open>XOR\<close>
 
 lemma word_xor_mask [simp]:
   fixes x :: "'a::len word"
@@ -422,7 +422,7 @@ lemma word_xor_mask [simp]:
 using assms
 by (intro word_eqI) (auto simp: word_size word_ops_nth_size)
 
-subsection \<open>Lower and upper bits\<close>
+subsubsection \<open>Lower and upper bits\<close>
 
 (* Perhaps we should create a definition for the lower and upper bits. The only annoying thing
 is that I'd like the parameter for the upper bits to specify how many lower bits are cleared, 
@@ -854,7 +854,7 @@ lemma word_and_mask_shiftl_eq_shiftl[simp]:
 lemma word_and_mask_0_iff_not_testbits: "(w AND mask n) = 0 \<longleftrightarrow> (\<forall>i < n. \<not>w !! i)"
   using test_bit_size[of w] by (auto simp: word_ao_nth word_eq_iff word_size)
 
-subsection \<open>@{const slice}\<close>
+subsubsection \<open>@{const slice}\<close>
 
 text \<open>We see @{const ucast} as a special case of @{const slice}.\<close>
 
@@ -1064,7 +1064,7 @@ using assms
 unfolding slice_zero[THEN sym]
 by (simp del: slice_zero)
 
-subsection \<open>@{const ucast}\<close>
+subsubsection \<open>@{const ucast}\<close>
 
 text \<open>These lemmas are not a corollary of a corresponding lemma about @{const slice}.\<close>
 
@@ -1333,7 +1333,7 @@ proof -
     using assms by simp
 qed
 
-subsection \<open>@{const word_cat}\<close>
+subsubsection \<open>@{const word_cat}\<close>
 
 lemma nth_word_cat:
   fixes x :: "'a::len0 word"
@@ -1366,7 +1366,7 @@ lemma word_cat_shiftl_OR: "word_cat xs (ys :: 'y::len word) = (ucast xs << LENGT
   using test_bit_len
   by (intro word_eqI) (auto simp: nth_word_cat word_ao_nth nth_shiftl nth_ucast)
 
-subsection \<open>@{const shiftl}\<close>
+subsubsection \<open>@{const shiftl}\<close>
 
 lemma shiftl_zero [simp]:
   fixes x :: "'a::len0 word"
@@ -1375,7 +1375,7 @@ lemma shiftl_zero [simp]:
 using assms
 by (intro word_eqI) (simp add: word_size nth_shiftl)
 
-subsection \<open>@{const scast}\<close>
+subsubsection \<open>@{const scast}\<close>
 
 lemma nth_scast:
   fixes w :: "'a::len word"
@@ -1439,7 +1439,7 @@ proof (intro word_eqI impI, unfold word_size)
     qed
 qed
 
-subsection \<open>Upper bits and @{const slice}\<close>
+subsubsection \<open>Upper bits and @{const slice}\<close>
 
 lemma slice_eq_imp_and_not_mask_eq:
   fixes x y :: "'a::len word"
@@ -1477,7 +1477,7 @@ using slice_eq_imp_and_not_mask_eq[where 'b='b and x=x and y=y and n=n]
 using and_not_mask_eq_imp_slice_eq[where 'b='b and x=x and y=y and n=n]
 by auto
 
-subsection \<open>Lower bits and @{const ucast}\<close>
+subsubsection \<open>Lower bits and @{const ucast}\<close>
 
 lemma ucast_eq_imp_and_mask_eq:
   fixes x y :: "'a::len word"
@@ -1516,7 +1516,7 @@ using ucast_eq_imp_and_mask_eq[where 'b='b and x=x and y=y and n=n]
 using and_mask_eq_imp_ucast_eq[where 'b='b and x=x and y=y and n=n]
 by auto
 
-subsection \<open>Aligned inequalities\<close>
+subsubsection \<open>Aligned inequalities\<close>
 
 lemma le_and_not_mask:
   fixes x y :: "'a::len word"
@@ -1579,262 +1579,6 @@ corollary word_and_not_mask_and_mask_size:
 using word_and_mask_and_not_mask_size[OF assms]
 using word_bool_alg.conj.assoc word_bool_alg.conj.commute
 by metis
-
-(*subsection \<open>Complete lattice over words\<close>
-
-text \<open>Because @{typ "'a word"} is already an instantiation of the type class @{class order}, we
-cannot create a class instance of @{class lattice} using a different order. We can, however, create
-an interpretation of @{class lattice} using a different order.\<close>
-
-subsubsection \<open>Interpretation of @{class order}\<close>
-
-definition bitwise_less_eq :: "'a::len0 word \<Rightarrow> 'a::len0 word \<Rightarrow> bool" where
-  "bitwise_less_eq w w' = (\<forall>i < len_of TYPE('a). w !! i \<longrightarrow> w' !! i)"
-
-abbreviation (out) bitwise_less :: "'a::len0 word \<Rightarrow> 'a::len0 word \<Rightarrow> bool" where
-  "bitwise_less x y \<equiv> (bitwise_less_eq x y) \<and> \<not>(bitwise_less_eq y x)"
-
-interpretation bitwise_order: 
-  order bitwise_less_eq bitwise_less
-proof standard
-  fix x :: "'a word"
-  show "bitwise_less_eq x x"
-    unfolding bitwise_less_eq_def
-    by simp
-next
-  fix x y z :: "'a word"
-  assume "bitwise_less_eq x y"
-     and "bitwise_less_eq y z"
-  thus   "bitwise_less_eq x z"
-    unfolding bitwise_less_eq_def
-    by auto
-next
-  fix x y :: "'a word"
-  assume "bitwise_less_eq x y"
-     and "bitwise_less_eq y x"
-  thus   "x = y"
-    unfolding bitwise_less_eq_def
-    by (intro word_eqI) (auto simp add: word_size)
-qed simp
-
-subsubsection \<open>Interpretation of @{class order_bot}\<close>
-
-abbreviation (out) bitwise_bot :: "'a::len0 word" where
-  "bitwise_bot \<equiv> 0"
-
-interpretation bitwise_order_bot: 
-  order_bot bitwise_bot bitwise_less_eq bitwise_less
-proof standard
-  fix a :: "'a word"
-  show "bitwise_less_eq bitwise_bot a"
-    unfolding bitwise_less_eq_def
-    by simp
-qed
-
-subsubsection \<open>Interpretation of @{class order_top}\<close>
-
-abbreviation (out) bitwise_top :: "'a::len word" where
-  "bitwise_top \<equiv> max_word"
-
-interpretation bitwise_order_top: 
-  order_top bitwise_less_eq bitwise_less bitwise_top
-proof standard
-  fix a :: "'a word"
-  show "bitwise_less_eq a bitwise_top"
-    unfolding bitwise_less_eq_def
-    by simp
-qed
-
-subsubsection \<open>Interpretation of @{class semilattice_inf}\<close>
-
-abbreviation (out) bitwise_inf :: "'a::len0 word \<Rightarrow> 'a::len0 word \<Rightarrow> 'a::len0 word" where
-  "bitwise_inf a b \<equiv> a AND b"
-
-interpretation bitwise_semilattice_inf: 
-  semilattice_inf bitwise_inf bitwise_less_eq bitwise_less
-proof standard
-  fix a b :: "'a word"
-  show "bitwise_less_eq (bitwise_inf a b) a"
-    unfolding bitwise_less_eq_def 
-    by (simp add: word_ops_nth_size word_size)
-next
-  fix a b :: "'a word"
-  show "bitwise_less_eq (bitwise_inf a b) b"
-    unfolding bitwise_less_eq_def 
-    by (simp add: word_ops_nth_size word_size)
-next
-  fix x y z :: "'a word"
-  assume "bitwise_less_eq x y"
-     and "bitwise_less_eq x z"
-  thus   "bitwise_less_eq x (bitwise_inf y z)"
-    unfolding bitwise_less_eq_def 
-    by (simp add: word_ops_nth_size word_size)
-
-(* I don't understand the warning *)
-qed
-
-subsubsection \<open>Interpretation of @{class semilattice_sup}\<close>
-
-abbreviation (out) bitwise_sup :: "'a::len0 word \<Rightarrow> 'a::len0 word \<Rightarrow> 'a::len0 word" where
-  "bitwise_sup a b \<equiv> a OR b"
-
-interpretation bitwise_semilattice_sup: 
-  semilattice_sup bitwise_sup bitwise_less_eq bitwise_less
-proof standard
-  fix a b :: "'a word"
-  show "bitwise_less_eq a (bitwise_sup a b)"
-    unfolding bitwise_less_eq_def 
-    by (simp add: word_ops_nth_size word_size)
-next
-  fix a b :: "'a word"
-  show "bitwise_less_eq b (bitwise_sup a b)"
-    unfolding bitwise_less_eq_def 
-    by (simp add: word_ops_nth_size word_size)
-next
-  fix x y z :: "'a word"
-  assume "bitwise_less_eq y x"
-     and "bitwise_less_eq z x"
-  thus   "bitwise_less_eq (bitwise_sup y z) x"
-    unfolding bitwise_less_eq_def 
-    by (simp add: word_ops_nth_size word_size)
-
-(* I don't understand the warning *)
-qed
-
-subsubsection \<open>Interpretation of @{class distrib_lattice}\<close>
-
-interpretation bitwise_distrib_lattice: 
-  distrib_lattice bitwise_inf bitwise_less_eq bitwise_less bitwise_sup
-by standard (fact word_oa_dist2)
-
-subsubsection \<open>Interpretation of @{class boolean_algebra}\<close>
-
-abbreviation (out) bitwise_uminus :: "'a::len0 word \<Rightarrow> 'a::len0 word" where
-  "bitwise_uminus a \<equiv> NOT a"
-
-abbreviation (out) bitwise_minus :: "'a::len0 word \<Rightarrow> 'a::len0 word \<Rightarrow> 'a::len0 word" where
-  "bitwise_minus a b \<equiv> bitwise_inf a (bitwise_uminus b)"
-
-interpretation bitwise_boolean_algebra: 
-  boolean_algebra 
-    bitwise_minus bitwise_uminus bitwise_inf bitwise_less_eq 
-    bitwise_less bitwise_sup bitwise_bot bitwise_top
-by standard simp_all
-
-subsubsection \<open>Interpretation of @{class complete_lattice}\<close>
-
-(*
-fun list_Inf :: "nat \<Rightarrow> ('a :: Inf) list set \<Rightarrow> 'a list" where
-  "list_Inf 0       A = []" |
-  "list_Inf (Suc n) A = (Inf (list.hd ` A)) # (list_Inf n (list.tl ` A))"
-
-definition bitwise_Inf :: "('a::len0) word set \<Rightarrow> 'a word" where
-  "bitwise_Inf A = of_bl (list_Inf (len_of TYPE('a)) (to_bl ` A))"
-
-fun list_Sup :: "nat \<Rightarrow> ('a :: Sup) list set \<Rightarrow> 'a list" where
-  "list_Sup 0       A = []" |
-  "list_Sup (Suc n) A = (Sup (list.hd ` A)) # (list_Sup n (list.tl ` A))"
-
-definition bitwise_Sup :: "('a::len0) word set \<Rightarrow> 'a word" where
-  "bitwise_Sup A = of_bl (list_Sup (len_of TYPE('a)) (to_bl ` A))"
-*)
-
-definition bitwise_Inf  :: "('a::len0) word set \<Rightarrow> 'a word" where
-  "bitwise_Inf A = (BITS i. \<forall>x\<in>A. x !! i)"
-
-definition bitwise_Sup  :: "('a::len0) word set \<Rightarrow> 'a word" where
-  "bitwise_Sup A = (BITS i. \<exists>x\<in>A. x !! i)"
-
-lemma nth_bitwise_Inf:
-  fixes A :: "'a ::len0 word set"
-  shows "bitwise_Inf A !! i = ((\<forall>x\<in>A. x !! i) \<and> i < len_of TYPE('a))"
-unfolding bitwise_Inf_def test_bit.eq_norm
-by simp
-
-lemma nth_bitwise_Sup:
-  fixes A :: "'a ::len0 word set"
-  shows "bitwise_Sup A !! i = ((\<exists>x\<in>A. x !! i) \<and> i < len_of TYPE('a))"
-unfolding bitwise_Sup_def test_bit.eq_norm
-by simp
-
-lemma setbits_True [simp]:
-  shows "(BITS i. True) = bitwise_top"
-apply (intro word_eqI)
-unfolding word_size test_bit.eq_norm
-by simp
-
-lemma setbits_False [simp]:
-  shows "(BITS i. False) = bitwise_bot"
-apply (intro word_eqI)
-unfolding word_size test_bit.eq_norm
-by simp
-
-interpretation bitwise_complete_lattice: 
-  complete_lattice 
-    bitwise_Inf bitwise_Sup bitwise_inf bitwise_less_eq 
-    bitwise_less bitwise_sup bitwise_bot bitwise_top
-proof standard
-  fix x :: "'a word" and A 
-  assume "x \<in> A"
-  thus   "bitwise_less_eq (bitwise_Inf A) x"
-    unfolding bitwise_less_eq_def nth_bitwise_Inf
-    by auto
-next
-  fix z :: "'a word" and A 
-  assume "\<And>x. x \<in> A \<Longrightarrow> bitwise_less_eq z x"
-  thus   "bitwise_less_eq z (bitwise_Inf A)"
-    unfolding bitwise_less_eq_def nth_bitwise_Inf
-    by auto
-next
-  fix x :: "'a word" and A 
-  assume "x \<in> A"
-  thus   "bitwise_less_eq x (bitwise_Sup A)"
-    unfolding bitwise_less_eq_def nth_bitwise_Sup
-    by auto
-next
-  fix z :: "'a word" and A 
-  assume "\<And>x. x \<in> A \<Longrightarrow> bitwise_less_eq x z"
-  thus   "bitwise_less_eq (bitwise_Sup A) z"
-    unfolding bitwise_less_eq_def nth_bitwise_Sup
-    by auto
-next
-  show "bitwise_Inf {} = bitwise_top"
-    unfolding bitwise_Inf_def
-    by simp
-next
-  show "bitwise_Sup {} = bitwise_bot"
-    unfolding bitwise_Sup_def
-    by simp
-qed*)
-
-(*subsubsection \<open>Interpretation of @{class complete_distrib_lattice}\<close>
-
-interpretation bitwise_complete_distrib_lattice: 
-  complete_distrib_lattice 
-    bitwise_Inf bitwise_Sup bitwise_inf bitwise_less_eq 
-    bitwise_less bitwise_sup bitwise_bot bitwise_top
-proof standard
-  fix a :: "'a word" and B
-  show "bitwise_sup a (bitwise_Inf B) = bitwise_complete_lattice.INFIMUM B (bitwise_sup a)"
-    apply (intro word_eqI)
-    unfolding word_size 
-    by (simp add: word_ao_nth nth_bitwise_Inf)
-next
-  fix a :: "'a word" and B
-  show "bitwise_inf a (bitwise_Sup B) = bitwise_complete_lattice.SUPREMUM B (bitwise_inf a)"
-    apply (intro word_eqI)
-    unfolding word_size 
-    by (simp add: word_ao_nth nth_bitwise_Sup)
-qed
-
-subsubsection \<open>Interpretation of @{class complete_boolean_algebra}\<close>
-
-interpretation bitwise_complete_boolean_algebra: 
-  complete_boolean_algebra 
-    bitwise_Inf bitwise_Sup bitwise_inf bitwise_less_eq 
-    bitwise_less bitwise_sup bitwise_bot bitwise_top
-    bitwise_minus bitwise_uminus
-by standard*)
 
 (*<*)
 end

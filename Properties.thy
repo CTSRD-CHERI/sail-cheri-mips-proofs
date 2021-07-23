@@ -41,6 +41,8 @@ locale CHERI_ISA_State = CHERI_ISA CC ISA + Register_Accessors read_regval write
           address_tag_aligned ISA paddr \<longleftrightarrow> address_tag_aligned ISA vaddr"
 begin
 
+subsection \<open>Reachable capabilities\<close>
+
 fun get_reg_val :: "register_name \<Rightarrow> 'regs sequential_state \<Rightarrow> 'regval option" where
   "get_reg_val r s = read_regval r (regstate s)"
 
@@ -59,33 +61,6 @@ fun get_mem_cap :: "nat \<Rightarrow> nat \<Rightarrow> 'regs sequential_state \
 fun get_aligned_mem_cap :: "nat \<Rightarrow> nat \<Rightarrow> 'regs sequential_state \<Rightarrow> 'cap option" where
   "get_aligned_mem_cap vaddr sz s =
      (if address_tag_aligned ISA vaddr \<and> sz = tag_granule ISA then get_mem_cap vaddr sz s else None)"
-
-fun s_invariant :: "('regs sequential_state \<Rightarrow> 'a) \<Rightarrow> 'regval trace \<Rightarrow> 'regs sequential_state \<Rightarrow> bool" where
-  "s_invariant f [] s = True"
-| "s_invariant f (e # t) s = (case s_emit_event e s of Some s' \<Rightarrow> f s' = f s \<and> s_invariant f t s' | None \<Rightarrow> False)"
-
-abbreviation s_invariant_holds :: "('regs sequential_state \<Rightarrow> bool) \<Rightarrow> 'regval trace \<Rightarrow> 'regs sequential_state \<Rightarrow> bool" where
-  "s_invariant_holds P t s \<equiv> P s \<and> s_invariant P t s"
-
-lemma s_invariant_append:
-  "s_invariant f (\<beta> @ \<alpha>) s \<longleftrightarrow>
-   (\<exists>s'. s_invariant f \<beta> s \<and> s_run_trace \<beta> s = Some s' \<and> s_invariant f \<alpha> s')"
-  by (induction \<beta> arbitrary: s) (auto split: option.splits simp: runTraceS_Cons_tl)
-
-lemma s_invariant_takeI:
-  assumes "s_invariant f t s"
-  shows "s_invariant f (take n t) s"
-proof -
-  from assms have "s_invariant f (take n t @ drop n t) s" by auto
-  then show ?thesis unfolding s_invariant_append by auto
-qed
-
-lemma s_invariant_run_trace_eq:
-  assumes "s_invariant f t s" and "s_run_trace t s = Some s'"
-  shows "f s' = f s"
-  using assms
-  by (induction f t s rule: s_invariant.induct)
-     (auto split: option.splits elim: runTraceS_ConsE)
 
 inductive_set reachable_caps :: "'regs sequential_state \<Rightarrow> 'cap set" for s :: "'regs sequential_state" where
   Reg: "\<lbrakk>c \<in> get_reg_caps r s; r \<notin> privileged_regs ISA; is_tagged_method CC c\<rbrakk> \<Longrightarrow> c \<in> reachable_caps s"
@@ -242,6 +217,8 @@ lemma reads_reg_cap_at_idx_from_initial:
   using assms
   by (elim reads_reg_cap_at_idx_provenance)
      (auto simp: cap_reg_written_before_idx_def writes_reg_caps_at_idx_def)
+
+subsection \<open>Capability monotonicity\<close>
 
 lemma available_caps_mono:
   assumes j: "j < i"
@@ -407,6 +384,33 @@ proof -
   with c' s'' tagged aligned show thesis
     by (cases rule: get_mem_cap_run_trace_cases) (auto intro: that)
 qed
+
+fun s_invariant :: "('regs sequential_state \<Rightarrow> 'a) \<Rightarrow> 'regval trace \<Rightarrow> 'regs sequential_state \<Rightarrow> bool" where
+  "s_invariant f [] s = True"
+| "s_invariant f (e # t) s = (case s_emit_event e s of Some s' \<Rightarrow> f s' = f s \<and> s_invariant f t s' | None \<Rightarrow> False)"
+
+abbreviation s_invariant_holds :: "('regs sequential_state \<Rightarrow> bool) \<Rightarrow> 'regval trace \<Rightarrow> 'regs sequential_state \<Rightarrow> bool" where
+  "s_invariant_holds P t s \<equiv> P s \<and> s_invariant P t s"
+
+lemma s_invariant_append:
+  "s_invariant f (\<beta> @ \<alpha>) s \<longleftrightarrow>
+   (\<exists>s'. s_invariant f \<beta> s \<and> s_run_trace \<beta> s = Some s' \<and> s_invariant f \<alpha> s')"
+  by (induction \<beta> arbitrary: s) (auto split: option.splits simp: runTraceS_Cons_tl)
+
+lemma s_invariant_takeI:
+  assumes "s_invariant f t s"
+  shows "s_invariant f (take n t) s"
+proof -
+  from assms have "s_invariant f (take n t @ drop n t) s" by auto
+  then show ?thesis unfolding s_invariant_append by auto
+qed
+
+lemma s_invariant_run_trace_eq:
+  assumes "s_invariant f t s" and "s_run_trace t s = Some s'"
+  shows "f s' = f s"
+  using assms
+  by (induction f t s rule: s_invariant.induct)
+     (auto split: option.splits elim: runTraceS_ConsE)
 
 definition no_caps_in_translation_tables :: "'regs sequential_state \<Rightarrow> bool" where
   "no_caps_in_translation_tables s \<equiv>

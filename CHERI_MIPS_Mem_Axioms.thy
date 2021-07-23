@@ -2,6 +2,8 @@ theory CHERI_MIPS_Mem_Axioms
 imports CHERI_MIPS_Gen_Lemmas
 begin
 
+subsection \<open>Memory access properties of instructions\<close>
+
 context CHERI_MIPS_Mem_Automaton
 begin
 
@@ -1921,6 +1923,8 @@ lemma hasTrace_instr_mem_axioms:
       auto)+
 
 end
+
+subsection \<open>Instruction fetch properties\<close>
 
 context CHERI_MIPS_Mem_Fetch_Automaton
 begin

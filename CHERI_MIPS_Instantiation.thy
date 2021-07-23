@@ -2,7 +2,7 @@ theory CHERI_MIPS_Instantiation
 imports "Sail-CHERI-MIPS.Cheri_lemmas" Cheri_reg_lemmas Recognising_Automata Sail.Sail2_operators_mwords_lemmas Word_Extra
 begin
 
-section \<open>General lemmas (TODO: Add to Sail library)\<close>
+section \<open>Capability monotonicity in CHERI-MIPS\<close>
 
 lemma more_and_or_boolM_simps[simp]:
   "and_boolM (return True) m = m"
@@ -71,7 +71,7 @@ proof -
     by (induction t arbitrary: s) auto
 qed
 
-section \<open>Instantiation of the abstract model for CHERI-MIPS\<close>
+subsection \<open>Instantiation of the abstract model for CHERI-MIPS\<close>
 
 definition get_cap_perms :: "Capability \<Rightarrow> perms" where
   "get_cap_perms c =
