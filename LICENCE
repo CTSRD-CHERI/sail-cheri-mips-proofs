@@ -1,0 +1,55 @@
+The capability monotonicity proof for Sail-CHERI-MIPS, comprising all
+files except those in the directories "lib" and "sail-cheri-mips", are
+subject to the licence below.  The "sail-cheri-mips" directory
+contains a snapshot of the Isabelle theories generated from the
+sail-cheri-mips specification and includes a copy of its licence.  The
+"lib" directory contains snapshots of the Lem and Sail libraries and
+includes copies of their licences.
+
+Copyright (c) 2019-2021 by
+  Thomas Bauereiss
+  Kyndylan Nienhuis
+
+All rights reserved.
+
+This work was supported by the Innovate UK project Digital Security by
+Design (DSbD) Technology Platform Prototype, 105694.
+
+This work was supported by EPSRC programme grant EP/K008528/1 (REMS:
+Rigorous Engineering for Mainstream Systems).
+
+This project has received funding from the European Research Council
+(ERC) under the European Union’s Horizon 2020 research and innovation
+programme (grant agreement 789108, ELVER).
+
+This work was supported by the Defense Advanced Research Projects
+Agency (DARPA) and the Air Force Research Laboratory (AFRL), under the
+contract FA8650-18-C-7809 (CIFV).
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+
+  3. Neither the name of the copyright holder nor the names of its
+     contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

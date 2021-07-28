@@ -2,8 +2,7 @@
 
 This repository contains a proof of capability monotonicity of the CHERI-MIPS
 architecture specified in Sail.  The proof uses the version of the architecture
-in commit `4d8457c1` of the
-[sail-cheri-mips](https://github.com/CTSRD-CHERI/sail-cheri-mips) repository.
+in commit `4d8457c1` of the [sail-cheri-mips][sail-cheri-mips] repository.
 
 ## Proof structure
 
@@ -41,12 +40,12 @@ patched version of Sail (commit `02e33d24`).
 
 ## Running the proofs
 
-The proof requires [Isabelle 2019](https://isabelle.in.tum.de/website-Isabelle2019/index.html).
+The proof requires [Isabelle 2019][Isabelle2019].
 The proof has last been tested with the following versions of dependencies:
-  * [sail-cheri-mips](https://github.com/CTSRD-CHERI/sail-cheri-mips) commit `4d8457c1`
-  * [sail](https://github.com/rems-project/sail) commit `63343363`
-  * [lem](https://github.com/rems-project/lem) commit `a839114`
-  * [Isabelle 2019](https://isabelle.in.tum.de/website-Isabelle2019/index.html)
+  * [sail-cheri-mips][sail-cheri-mips] commit `4d8457c1`
+  * [Sail][sail] commit `63343363`
+  * [Lem][lem] commit `a839114`
+  * [Isabelle 2019][Isabelle2019]
 
 The proof scripts depend on the Lem and Sail libraries as well as the Isabelle
 definitions generated from the `sail-cheri-mips` specification.  This
@@ -65,3 +64,42 @@ in addition to 5 minutes to process the CHERI-MIPS specification.
 
 A snapshot of the typeset version of the proof scripts produced by Isabelle can
 be found in [proof/document/output.pdf](proof/document/output.pdf).
+
+## People and funding
+
+The capability monotonicity proof for Sail-CHERI-MIPS has been developed by
+Thomas Bauereiss.  The [WordExtra](proof/Word_Extra.thy) library was developed
+by Kyndylan Nienhuis, with contributions from Thomas Bauereiss.
+
+The proof depends on the [sail-cheri-mips][sail-cheri-mips] specification and
+the [Lem][lem] and [Sail][sail] libraries;  the
+[sail-cheri-mips](sail-cheri-mips/) and [lib](lib/) directories contain
+snaphots of those including licence files with copyright and funding
+information.
+
+This work was supported by the Innovate UK project Digital Security by
+Design (DSbD) Technology Platform Prototype, 105694.
+
+This work was supported by EPSRC programme grant EP/K008528/1 (REMS:
+Rigorous Engineering for Mainstream Systems).
+
+This project has received funding from the European Research Council
+(ERC) under the European Union’s Horizon 2020 research and innovation
+programme (grant agreement 789108, ELVER).
+
+This work was supported by the Defense Advanced Research Projects
+Agency (DARPA) and the Air Force Research Laboratory (AFRL), under the
+contract FA8650-18-C-7809 (CIFV).
+
+## Licence
+
+The proof is made available under the BSD three-clause licence in
+[LICENCE](LICENCE);  the snaphots of dependencies in the
+[sail-cheri-mips](sail-cheri-mips/) and [lib](lib/) directories contain copies
+of the two-clause or three-clause BSD licences under which they are
+distributed.
+
+[sail-cheri-mips]: https://github.com/CTSRD-CHERI/sail-cheri-mips
+[sail]: https://github.com/rems-project/sail
+[lem]: https://github.com/rems-project/lem
+[Isabelle2019]: https://isabelle.in.tum.de/website-Isabelle2019/index.html
