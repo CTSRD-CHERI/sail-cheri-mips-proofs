@@ -93,7 +93,7 @@ contract FA8650-18-C-7809 (CIFV).
 
 ## Licence
 
-The proof is made available under the BSD three-clause licence in
+The proof is made available under the BSD two-clause licence in
 [LICENCE](LICENCE);  the snaphots of dependencies in the
 [sail-cheri-mips](sail-cheri-mips/) and [lib](lib/) directories contain copies
 of the two-clause or three-clause BSD licences under which they are
